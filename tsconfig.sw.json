@@ -1,0 +1,11 @@
+{
+  // The service worker: runs in a worker, not on the page, so it gets the
+  // WebWorker library instead of DOM. Compiled to _site/sw.js.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker"],
+    "rootDir": "service-worker",
+    "outDir": "_site"
+  },
+  "include": ["service-worker"]
+}

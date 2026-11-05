@@ -1,0 +1,31 @@
+{
+  // Settings shared by every part of the project. The other tsconfig files
+  // extend this one, much like Directory.Build.props in .NET.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    // Strict type checking, like C# nullable reference types plus warnings as errors.
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Only TypeScript features that compile by deleting the types (no enums,
+    // namespaces or constructor parameter properties). That lets Node run the
+    // .ts tests and scripts directly, without a compile step.
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+
+    // Source files import each other with .ts extensions; the compiler
+    // rewrites them to .js in its output.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+
+    "skipLibCheck": true,
+    "types": []
+  }
+}

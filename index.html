@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>NASP Card Scanner</title>
+    <meta
+      name="description"
+      content="Photograph a NASP practice score card; the page reads the bubbles, totals each end, and keeps a practice log you can export to a spreadsheet."
+    />
+
+    <!-- Home-screen app details -->
+    <meta name="theme-color" content="#2a7a45" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111714" media="(prefers-color-scheme: dark)" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="assets/icons/icon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="NASP Scan" />
+
+    <!-- Fonts. The page still works with system fonts if these can't load. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Public+Sans:wght@400;500;600&display=swap"
+    />
+
+    <link rel="stylesheet" href="css/styles.css" />
+    <script type="module" src="js/app/main.js"></script>
+  </head>
+
+  <body>
+    <div class="page">
+      <header class="page-header">
+        <div>
+          <h1>NASP Card Scanner</h1>
+          <p>
+            Photograph a practice score card. The page reads the bubbles, adds up each end, and
+            keeps a log you can export to a spreadsheet. Photos and scores stay on this device.
+          </p>
+        </div>
+        <div class="button-row">
+          <!-- On phones, "capture" opens the camera directly. -->
+          <label class="button is-primary" for="take-photo-input">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+              <circle cx="12" cy="13" r="3.5" />
+            </svg>
+            Take photo
+          </label>
+          <input
+            id="take-photo-input"
+            class="visually-hidden"
+            type="file"
+            accept="image/*"
+            capture="environment"
+          />
+
+          <label class="button" for="upload-photo-input">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 16V4M7 9l5-5 5 5" />
+              <path d="M4 16v4h16v-4" />
+            </svg>
+            Upload image
+          </label>
+          <input id="upload-photo-input" class="visually-hidden" type="file" accept="image/*" />
+
+          <button id="enter-by-hand-button" class="button is-quiet" type="button">
+            Enter by hand
+          </button>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <!-- Left: the photo, with what the reader saw drawn over it. -->
+        <section class="panel" aria-labelledby="photo-heading">
+          <div class="panel-header">
+            <h2 id="photo-heading">Photo</h2>
+            <span id="photo-source-badge" class="badge is-sample">Sample card</span>
+          </div>
+          <div id="photo-drop-zone" class="photo-stage">
+            <canvas
+              id="photo-canvas"
+              width="10"
+              height="10"
+              aria-label="Score card photo with detected bubbles marked"
+            ></canvas>
+          </div>
+          <div id="photo-status" class="status-message" role="status">Reading the sample card…</div>
+          <div class="legend" aria-hidden="true">
+            <span><i class="legend-swatch is-read"></i>Read as marked</span>
+            <span><i class="legend-swatch is-review"></i>Needs a look</span>
+            <span><i class="legend-swatch is-timing-mark"></i>Timing marks</span>
+          </div>
+          <label class="checkbox-label">
+            <input id="show-overlay-checkbox" type="checkbox" checked />
+            Show what the reader saw
+          </label>
+          <details class="reading-tips">
+            <summary>Getting a clean read</summary>
+            <ul>
+              <li>Lay the card flat in even light and avoid glare across the bubbles.</li>
+              <li>
+                Fit the whole card in the frame, including the black marks down the left edge. Those
+                marks are how the reader finds each row.
+              </li>
+              <li>
+                Blue, red and green cards all work, at any angle or rotation, even upside down.
+                Straight on reads best.
+              </li>
+              <li>
+                A clip over the top of the card is fine as long as the left-edge marks for every row
+                are visible.
+              </li>
+              <li>
+                Dark pencil fills read most reliably. Erase changed answers completely, or the card
+                gets flagged.
+              </li>
+            </ul>
+          </details>
+        </section>
+
+        <!-- Right: the editable score sheet. -->
+        <section class="panel" aria-labelledby="score-sheet-heading">
+          <div class="panel-header">
+            <h2 id="score-sheet-heading">Score sheet</h2>
+            <span class="label-text">Tap any arrow to change it</span>
+          </div>
+
+          <div class="round-details">
+            <label class="form-field archer-field">
+              Archer
+              <input id="archer-input" list="archer-names" autocomplete="off" placeholder="Name" />
+            </label>
+            <datalist id="archer-names"></datalist>
+            <label class="form-field">
+              Date
+              <input id="round-date-input" type="date" />
+            </label>
+            <label class="form-field">
+              Shooter #
+              <input
+                id="shooter-number-input"
+                inputmode="numeric"
+                maxlength="5"
+                placeholder="5 digits"
+              />
+            </label>
+          </div>
+
+          <div class="score-summary" aria-live="polite">
+            <div>
+              <span id="round-total" class="round-total numeric">0</span>
+              <span class="round-maximum"> / 300</span>
+            </div>
+            <div class="summary-stat"><b id="ten-meter-total">0</b><span>10 m</span></div>
+            <div class="summary-stat"><b id="fifteen-meter-total">0</b><span>15 m</span></div>
+            <div class="summary-stat is-tens"><b id="tens-count">0</b><span>10s</span></div>
+            <div class="summary-stat"><b id="arrows-entered">0</b><span>of 30 arrows</span></div>
+          </div>
+
+          <!-- Filled in by score-sheet.js: one row per end. -->
+          <div id="ends-container" class="ends-list"></div>
+          <!-- Filled in by score-sheet.js: anything the reader wants checked. -->
+          <div id="review-list" class="review-list"></div>
+
+          <div class="save-row">
+            <button id="save-round-button" class="button is-primary" type="button">
+              Save to practice log
+            </button>
+            <span id="save-message" class="save-message"></span>
+          </div>
+        </section>
+      </div>
+
+      <!-- Bottom: every saved round, with export and import. -->
+      <section class="panel" aria-labelledby="practice-log-heading">
+        <div class="practice-log-header">
+          <div>
+            <h2 id="practice-log-heading">Practice log</h2>
+            <p id="practice-log-message">Saved in this browser on this device.</p>
+          </div>
+          <div class="button-row">
+            <button id="download-csv-button" class="button" type="button">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 4v12M7 11l5 5 5-5" />
+                <path d="M4 20h16" />
+              </svg>
+              Download CSV
+            </button>
+            <label class="button" for="import-csv-input">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 16V4M7 9l5-5 5 5" />
+                <path d="M4 20h16" />
+              </svg>
+              Import CSV
+            </label>
+            <input
+              id="import-csv-input"
+              class="visually-hidden"
+              type="file"
+              accept=".csv,text/csv"
+            />
+            <button id="copy-for-spreadsheet-button" class="button" type="button">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="8" y="8" width="12" height="12" rx="2" />
+                <path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" />
+              </svg>
+              Copy for spreadsheet
+            </button>
+          </div>
+        </div>
+
+        <!-- Filled in by practice-log-view.js. -->
+        <div id="practice-log-table" class="table-scroller"></div>
+
+        <!-- Shown only when the browser blocks copying to the clipboard. -->
+        <div id="copy-fallback" class="copy-fallback" hidden>
+          <span id="copy-fallback-message" class="muted-text"></span>
+          <textarea id="copy-fallback-text" readonly aria-label="Practice log as text"></textarea>
+        </div>
+      </section>
+    </div>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+  </body>
+</html>

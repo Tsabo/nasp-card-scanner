@@ -1,0 +1,11 @@
+{
+  // Tests and build scripts: run directly by Node, never compiled.
+  // Type-checked only, by "npm run typecheck".
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["tests", "scripts", "src"]
+}

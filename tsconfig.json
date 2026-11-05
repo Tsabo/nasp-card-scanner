@@ -1,0 +1,14 @@
+{
+  // The app and the reader: compiled to _site/js for the browser.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "rootDir": "src",
+    "outDir": "_site/js",
+    "sourceMap": true,
+    // Put the TypeScript source inside the map, so browser dev tools show
+    // and debug the .ts files even though only .js is published.
+    "inlineSources": true
+  },
+  "include": ["src"]
+}
