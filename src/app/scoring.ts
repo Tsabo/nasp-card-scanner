@@ -1,29 +1,29 @@
 /**
- * @file NASP round scoring rules: 6 ends of 5 arrows, scored 0 to 10.
- * Ends 1 to 3 are shot from 10 meters and ends 4 to 6 from 15 meters.
+ * @file NASP scorecard scoring rules: 6 rounds of 5 arrows, scored 0 to 10.
+ * Rounds 1 to 3 are shot from 10 meters and rounds 4 to 6 from 15 meters.
  *
  * Pure functions only, so they're easy to test.
  */
 
-export const END_COUNT = 6;
-export const ARROWS_PER_END = 5;
-export const ARROW_COUNT = END_COUNT * ARROWS_PER_END;
+export const ROUND_COUNT = 6;
+export const ARROWS_PER_ROUND = 5;
+export const ARROW_COUNT = ROUND_COUNT * ARROWS_PER_ROUND;
 export const MAXIMUM_ARROW_SCORE = 10;
-export const MAXIMUM_ROUND_SCORE = ARROW_COUNT * MAXIMUM_ARROW_SCORE;
+export const MAXIMUM_SCORECARD_SCORE = ARROW_COUNT * MAXIMUM_ARROW_SCORE;
 
-/** Ends shot from 10 meters; the rest are from 15 meters. */
-export const TEN_METER_END_COUNT = 3;
+/** Rounds shot from 10 meters; the rest are from 15 meters. */
+export const TEN_METER_ROUND_COUNT = 3;
 
 /** One arrow's score, or null when it hasn't been entered. */
 export type ArrowScore = number | null;
 
-/** The totals for a round. */
-export interface RoundSummary {
-  /** One per end. Blank arrows count as 0. */
-  endTotals: number[];
-  /** Ends 1 to 3. */
+/** The totals for a scorecard. */
+export interface ScorecardSummary {
+  /** One per round. Blank arrows count as 0. */
+  roundTotals: number[];
+  /** Rounds 1 to 3. */
   tenMeterTotal: number;
-  /** Ends 4 to 6. */
+  /** Rounds 4 to 6. */
   fifteenMeterTotal: number;
   /** Out of 300. */
   total: number;
@@ -34,20 +34,20 @@ export interface RoundSummary {
 }
 
 /**
- * Totals a round.
+ * Totals a scorecard.
  *
- * @param arrowScores Every arrow in card order (End 1 arrow 1 first).
+ * @param arrowScores Every arrow in card order (Round 1 arrow 1 first).
  */
-export function summarizeRound(arrowScores: readonly ArrowScore[]): RoundSummary {
-  const endTotals: number[] = [];
-  for (let endIndex = 0; endIndex < END_COUNT; endIndex++) {
-    endTotals.push(sumScores(getEndScores(arrowScores, endIndex)));
+export function summarizeScorecard(arrowScores: readonly ArrowScore[]): ScorecardSummary {
+  const roundTotals: number[] = [];
+  for (let roundIndex = 0; roundIndex < ROUND_COUNT; roundIndex++) {
+    roundTotals.push(sumScores(getRoundScores(arrowScores, roundIndex)));
   }
-  const tenMeterTotal = sumScores(endTotals.slice(0, TEN_METER_END_COUNT));
-  const fifteenMeterTotal = sumScores(endTotals.slice(TEN_METER_END_COUNT));
+  const tenMeterTotal = sumScores(roundTotals.slice(0, TEN_METER_ROUND_COUNT));
+  const fifteenMeterTotal = sumScores(roundTotals.slice(TEN_METER_ROUND_COUNT));
 
   return {
-    endTotals,
+    roundTotals,
     tenMeterTotal,
     fifteenMeterTotal,
     total: tenMeterTotal + fifteenMeterTotal,
@@ -57,36 +57,39 @@ export function summarizeRound(arrowScores: readonly ArrowScore[]): RoundSummary
 }
 
 /**
- * Returns the five arrow scores of one end.
+ * Returns the five arrow scores of one round.
  *
- * @param endIndex 0 for End 1.
+ * @param roundIndex 0 for Round 1.
  */
-export function getEndScores(arrowScores: readonly ArrowScore[], endIndex: number): ArrowScore[] {
-  const first = endIndex * ARROWS_PER_END;
-  return arrowScores.slice(first, first + ARROWS_PER_END);
+export function getRoundScores(
+  arrowScores: readonly ArrowScore[],
+  roundIndex: number,
+): ArrowScore[] {
+  const first = roundIndex * ARROWS_PER_ROUND;
+  return arrowScores.slice(first, first + ARROWS_PER_ROUND);
 }
 
 /**
- * Tells whether an end still has blank arrows.
+ * Tells whether a round still has blank arrows.
  *
- * @param endIndex 0 for End 1.
+ * @param roundIndex 0 for Round 1.
  */
-export function isEndIncomplete(arrowScores: readonly ArrowScore[], endIndex: number): boolean {
-  return getEndScores(arrowScores, endIndex).some((score) => score === null);
+export function isRoundIncomplete(arrowScores: readonly ArrowScore[], roundIndex: number): boolean {
+  return getRoundScores(arrowScores, roundIndex).some((score) => score === null);
 }
 
 /**
- * Describes an arrow's position for people, such as "End 3 · arrow 4".
+ * Describes an arrow's position for people, such as "Round 3 · arrow 4".
  *
  * @param arrowIndex 0 to 29.
  */
 export function describeArrow(arrowIndex: number): string {
-  const endNumber = Math.floor(arrowIndex / ARROWS_PER_END) + 1;
-  const arrowNumber = (arrowIndex % ARROWS_PER_END) + 1;
-  return `End ${endNumber} · arrow ${arrowNumber}`;
+  const roundNumber = Math.floor(arrowIndex / ARROWS_PER_ROUND) + 1;
+  const arrowNumber = (arrowIndex % ARROWS_PER_ROUND) + 1;
+  return `Round ${roundNumber} · arrow ${arrowNumber}`;
 }
 
-/** Returns a round with every arrow blank. */
+/** Returns a scorecard with every arrow blank. */
 export function createBlankScores(): ArrowScore[] {
   return new Array<ArrowScore>(ARROW_COUNT).fill(null);
 }

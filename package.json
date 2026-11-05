@@ -1,7 +1,7 @@
 {
   "name": "nasp-card-scanner",
   "version": "2.0.0",
-  "description": "Read NASP practice score cards from a phone photo, total each end, and export the scores to a spreadsheet.",
+  "description": "Read NASP practice score cards from a phone photo, total each round, and export the scores to a spreadsheet.",
   "license": "MIT",
   "author": "Jeremy Brown",
   "private": true,

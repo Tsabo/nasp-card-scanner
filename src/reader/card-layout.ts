@@ -9,9 +9,9 @@
  * Card structure, top to bottom:
  *
  *   one lone "corner" timing mark
- *   End 1 .. End 3   (10 meters)   5 rows each, bubbles 0..10
- *   End 4 .. End 6   (15 meters)   5 rows each, bubbles 0..10
- *   Shooter #                      5 rows (one per digit), bubbles 0..9
+ *   Round 1 .. Round 3   (10 meters)   5 rows each, bubbles 0..10
+ *   Round 4 .. Round 6   (15 meters)   5 rows each, bubbles 0..10
+ *   Shooter #                          5 rows (one per digit), bubbles 0..9
  *
  * Each row of bubbles has its own timing mark at the left edge of the card.
  */
@@ -23,7 +23,7 @@
  * which detected mark is which, and which way up the card is.
  *
  * Index 0 is the corner mark. Indexes 1 to 35 are the row marks, in row
- * order (End 1 row 1 first, Shooter # digit 5 last).
+ * order (Round 1 row 1 first, Shooter # digit 5 last).
  */
 export const TIMING_MARK_POSITIONS: readonly number[] = Object.freeze([
   52.5, 232.5, 272.5, 312.5, 352.6, 393.0, 443.5, 483.5, 523.5, 563.5, 603.5, 654.0, 694.0, 733.0,
@@ -43,16 +43,16 @@ export const TEMPLATE_MARK_PITCH = 40;
  */
 export const TEMPLATE_MIDPOINT = 900;
 
-/** Sections on the card: six ends plus the shooter number. */
+/** Sections on the card: six rounds plus the shooter number. */
 export const SECTION_COUNT = 7;
 
-/** Rows in every section: five arrows per end, or five shooter-number digits. */
+/** Rows in every section: five arrows per round, or five shooter-number digits. */
 export const ROWS_PER_SECTION = 5;
 
 /** Total rows of bubbles on the card. */
 export const ROW_COUNT = SECTION_COUNT * ROWS_PER_SECTION;
 
-/** Rows that hold arrow scores (the six ends). The rest hold shooter-number digits. */
+/** Rows that hold arrow scores (the six rounds). The rest hold shooter-number digits. */
 export const SCORE_ROW_COUNT = 30;
 
 /** Bubbles in an arrow row: 0 through 10. */
@@ -77,7 +77,7 @@ export const BUBBLE_SPACING = 1.503;
  * Returns how many bubbles a row has: 11 for arrow rows, 10 for
  * shooter-number rows.
  *
- * @param rowIndex Row number from 0 (End 1, arrow 1) to 34 (last shooter digit).
+ * @param rowIndex Row number from 0 (Round 1, arrow 1) to 34 (last shooter digit).
  */
 export function getBubbleCount(rowIndex: number): number {
   return isScoreRow(rowIndex) ? SCORE_BUBBLES_PER_ROW : SHOOTER_BUBBLES_PER_ROW;
@@ -93,7 +93,7 @@ export function isScoreRow(rowIndex: number): boolean {
 }
 
 /**
- * Returns which section a row belongs to: 0 to 5 for End 1 to 6, 6 for Shooter #.
+ * Returns which section a row belongs to: 0 to 5 for Round 1 to 6, 6 for Shooter #.
  *
  * @param rowIndex Row number from 0 to 34.
  */

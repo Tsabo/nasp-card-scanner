@@ -6,7 +6,7 @@
     <title>NASP Card Scanner</title>
     <meta
       name="description"
-      content="Photograph a NASP practice score card; the page reads the bubbles, totals each end, and keeps a practice log you can export to a spreadsheet."
+      content="Photograph a NASP practice score card; the page reads the bubbles, totals each round, and keeps a practice log you can export to a spreadsheet."
     />
 
     <!-- Home-screen app details -->
@@ -38,7 +38,7 @@
         <div>
           <h1>NASP Card Scanner</h1>
           <p>
-            Photograph a practice score card. The page reads the bubbles, adds up each end, and
+            Photograph a practice score card. The page reads the bubbles, adds up each round, and
             keeps a log you can export to a spreadsheet. Photos and scores stay on this device.
           </p>
         </div>
@@ -146,7 +146,7 @@
             <span class="label-text">Tap any arrow to change it</span>
           </div>
 
-          <div class="round-details">
+          <div class="scorecard-details">
             <label class="form-field archer-field">
               Archer
               <input id="archer-input" list="archer-names" autocomplete="off" placeholder="Name" />
@@ -154,7 +154,7 @@
             <datalist id="archer-names"></datalist>
             <label class="form-field">
               Date
-              <input id="round-date-input" type="date" />
+              <input id="scorecard-date-input" type="date" />
             </label>
             <label class="form-field">
               Shooter #
@@ -169,8 +169,8 @@
 
           <div class="score-summary" aria-live="polite">
             <div>
-              <span id="round-total" class="round-total numeric">0</span>
-              <span class="round-maximum"> / 300</span>
+              <span id="scorecard-total" class="scorecard-total numeric">0</span>
+              <span class="scorecard-maximum"> / 300</span>
             </div>
             <div class="summary-stat"><b id="ten-meter-total">0</b><span>10 m</span></div>
             <div class="summary-stat"><b id="fifteen-meter-total">0</b><span>15 m</span></div>
@@ -178,13 +178,13 @@
             <div class="summary-stat"><b id="arrows-entered">0</b><span>of 30 arrows</span></div>
           </div>
 
-          <!-- Filled in by score-sheet.js: one row per end. -->
-          <div id="ends-container" class="ends-list"></div>
+          <!-- Filled in by score-sheet.js: one row per round. -->
+          <div id="rounds-container" class="rounds-list"></div>
           <!-- Filled in by score-sheet.js: anything the reader wants checked. -->
           <div id="review-list" class="review-list"></div>
 
           <div class="save-row">
-            <button id="save-round-button" class="button is-primary" type="button">
+            <button id="save-scorecard-button" class="button is-primary" type="button">
               Save to practice log
             </button>
             <span id="save-message" class="save-message"></span>
@@ -192,7 +192,7 @@
         </section>
       </div>
 
-      <!-- Bottom: every saved round, with export and import. -->
+      <!-- Bottom: every saved scorecard, with export and import. -->
       <section class="panel" aria-labelledby="practice-log-heading">
         <div class="practice-log-header">
           <div>
