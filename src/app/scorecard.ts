@@ -1,12 +1,12 @@
 /**
- * @file The saved-round record, shared by the practice log, the CSV import
+ * @file The saved-scorecard record, shared by the practice log, the CSV import
  * and export, and the page.
  */
 
 import type { ArrowScore } from "./scoring.ts";
 
-/** One saved practice round. */
-export interface PracticeRound {
+/** One saved scorecard. */
+export interface Scorecard {
   /** Unique within this browser's log. */
   id: string;
   /** "YYYY-MM-DD". */
@@ -21,41 +21,41 @@ export interface PracticeRound {
   createdAt: number;
 }
 
-/** A round that hasn't been given an id yet. */
-export type NewPracticeRound = Omit<PracticeRound, "id">;
+/** A scorecard that hasn't been given an id yet. */
+export type NewScorecard = Omit<Scorecard, "id">;
 
 /**
- * Builds a key that is the same for two rounds with the same date, archer,
+ * Builds a key that is the same for two scorecards with the same date, archer,
  * shooter number and arrows. Used to skip duplicates on import.
  */
-export function getRoundIdentity(round: NewPracticeRound): string {
+export function getScorecardIdentity(scorecard: NewScorecard): string {
   return [
-    round.date,
-    round.archer.toLowerCase(),
-    round.shooterNumber,
-    round.arrowScores.map((score) => score ?? "").join("."),
+    scorecard.date,
+    scorecard.archer.toLowerCase(),
+    scorecard.shooterNumber,
+    scorecard.arrowScores.map((score) => score ?? "").join("."),
   ].join("|");
 }
 
 /**
- * Sorts rounds newest first: by date, then by when they were saved.
+ * Sorts scorecards newest first: by date, then by when they were saved.
  *
  * @returns A new, sorted array.
  */
-export function sortNewestFirst(rounds: readonly PracticeRound[]): PracticeRound[] {
-  return [...rounds].sort(
+export function sortNewestFirst(scorecards: readonly Scorecard[]): Scorecard[] {
+  return [...scorecards].sort(
     (first, second) => second.date.localeCompare(first.date) || second.createdAt - first.createdAt,
   );
 }
 
 /**
- * Converts a record read from storage into a {@link PracticeRound}, filling
+ * Converts a record read from storage into a {@link Scorecard}, filling
  * in anything missing. Also accepts the field names used by the first
  * version of the app (`shooter`, `arrows`).
  *
  * @returns Null when the record is unusable.
  */
-export function normalizeStoredRound(stored: unknown): PracticeRound | null {
+export function normalizeStoredScorecard(stored: unknown): Scorecard | null {
   if (typeof stored !== "object" || stored === null) {
     return null;
   }

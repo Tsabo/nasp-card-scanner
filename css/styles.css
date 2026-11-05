@@ -353,7 +353,7 @@ h2 {
 
 /* ---------- Score sheet ---------- */
 
-.round-details {
+.scorecard-details {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1fr);
   gap: 10px;
@@ -361,11 +361,11 @@ h2 {
 }
 
 @media (max-width: 520px) {
-  .round-details {
+  .scorecard-details {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
-  .round-details .archer-field {
+  .scorecard-details .archer-field {
     grid-column: 1 / -1;
   }
 }
@@ -405,13 +405,13 @@ h2 {
   background: var(--color-page);
 }
 
-.round-total {
+.scorecard-total {
   font-size: 3rem;
   font-weight: 700;
   line-height: 0.9;
 }
 
-.round-maximum {
+.scorecard-maximum {
   font-family: var(--font-display);
   font-size: 1.1rem;
   color: var(--color-text-muted);
@@ -440,7 +440,7 @@ h2 {
   color: var(--color-ten);
 }
 
-.ends-list {
+.rounds-list {
   display: grid;
   gap: 4px;
 }
@@ -465,20 +465,20 @@ h2 {
   font-weight: 700;
 }
 
-.end-row {
+.round-row {
   display: grid;
-  grid-template-columns: 58px repeat(5, minmax(34px, 46px)) minmax(44px, 1fr);
+  grid-template-columns: 70px repeat(5, minmax(34px, 46px)) minmax(44px, 1fr);
   align-items: center;
   gap: 6px;
 }
 
-.end-label {
+.round-label {
   font-family: var(--font-display);
   font-size: 1.05rem;
   font-weight: 600;
 }
 
-.end-total {
+.round-total {
   padding-right: 4px;
   font-family: var(--font-display);
   font-size: 1.35rem;
@@ -487,7 +487,7 @@ h2 {
   text-align: right;
 }
 
-.end-total.is-incomplete {
+.round-total.is-incomplete {
   color: var(--color-text-muted);
 }
 

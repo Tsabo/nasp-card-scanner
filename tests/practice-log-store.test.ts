@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { PracticeLogStore, StorageUnavailableError } from "../src/app/practice-log-store.ts";
-import type { NewPracticeRound } from "../src/app/practice-round.ts";
+import type { NewScorecard } from "../src/app/scorecard.ts";
 
 /** A stand-in for the browser's localStorage, kept in memory. */
 class MemoryStorage implements Storage {
@@ -35,7 +35,7 @@ class MemoryStorage implements Storage {
   }
 }
 
-function createRound(archer = "Kyle", firstArrow = 10): NewPracticeRound {
+function createScorecard(archer = "Kyle", firstArrow = 10): NewScorecard {
   return {
     date: "2026-11-04",
     archer,
@@ -46,34 +46,34 @@ function createRound(archer = "Kyle", firstArrow = 10): NewPracticeRound {
 }
 
 describe("PracticeLogStore", () => {
-  it("saves rounds and reads them back in a new session", () => {
+  it("saves scorecards and reads them back in a new session", () => {
     const storage = new MemoryStorage();
     const store = new PracticeLogStore(storage);
-    const saved = store.add(createRound());
+    const saved = store.add(createScorecard());
     assert.ok(saved.id);
 
     const reopened = new PracticeLogStore(storage);
     assert.deepEqual(reopened.getAll(), [saved]);
   });
 
-  it("deletes a round", () => {
+  it("deletes a scorecard", () => {
     const store = new PracticeLogStore(new MemoryStorage());
-    const first = store.add(createRound("Kyle"));
-    store.add(createRound("Ryan"));
+    const first = store.add(createScorecard("Kyle"));
+    store.add(createScorecard("Ryan"));
     store.remove(first.id);
     assert.deepEqual(
-      store.getAll().map((round) => round.archer),
+      store.getAll().map((scorecard) => scorecard.archer),
       ["Ryan"],
     );
   });
 
   it("skips duplicates when importing", () => {
     const store = new PracticeLogStore(new MemoryStorage());
-    store.add(createRound("Kyle"));
+    store.add(createScorecard("Kyle"));
     const result = store.addMany([
-      createRound("kyle"),
-      createRound("Kyle", 8),
-      createRound("Ryan"),
+      createScorecard("kyle"),
+      createScorecard("Kyle", 8),
+      createScorecard("Ryan"),
     ]);
     assert.deepEqual(result, { addedCount: 2, duplicateCount: 1 });
     assert.equal(store.getAll().length, 3);
@@ -81,7 +81,7 @@ describe("PracticeLogStore", () => {
 
   it("leaves the log unchanged when the browser refuses to save", () => {
     const store = new PracticeLogStore(new MemoryStorage({ refuseWrites: true }));
-    assert.throws(() => store.add(createRound()), StorageUnavailableError);
+    assert.throws(() => store.add(createScorecard()), StorageUnavailableError);
     assert.equal(store.getAll().length, 0);
     assert.equal(store.canSave(), false);
   });
@@ -101,14 +101,28 @@ describe("PracticeLogStore", () => {
         },
       ]),
     );
-    const [round] = new PracticeLogStore(storage).getAll();
-    assert.equal(round.shooterNumber, "12828");
-    assert.equal(round.arrowScores.length, 30);
+    const [scorecard] = new PracticeLogStore(storage).getAll();
+    assert.equal(scorecard.shooterNumber, "12828");
+    assert.equal(scorecard.arrowScores.length, 30);
+  });
+
+  it("moves a log from the old storage key on the next save", () => {
+    const storage = new MemoryStorage();
+    const oldStore = new PracticeLogStore(storage);
+    oldStore.add(createScorecard("Kyle"));
+    storage.setItem("nasp-practice-log", storage.getItem("nasp-scorecards") ?? "");
+    storage.removeItem("nasp-scorecards");
+
+    const store = new PracticeLogStore(storage);
+    assert.equal(store.getAll().length, 1);
+    store.add(createScorecard("Ryan"));
+    assert.equal(storage.getItem("nasp-practice-log"), null);
+    assert.equal(new PracticeLogStore(storage).getAll().length, 2);
   });
 
   it("starts empty when the stored log is damaged", () => {
     const storage = new MemoryStorage();
-    storage.setItem("nasp-practice-log", "{not json");
+    storage.setItem("nasp-scorecards", "{not json");
     assert.deepEqual(new PracticeLogStore(storage).getAll(), []);
   });
 });

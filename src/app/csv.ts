@@ -9,23 +9,28 @@
  */
 
 import { getTodayAsIsoDate } from "./dates.ts";
-import type { NewPracticeRound, PracticeRound } from "./practice-round.ts";
+import type { NewScorecard, Scorecard } from "./scorecard.ts";
 import {
-  ARROWS_PER_END,
+  ARROWS_PER_ROUND,
   ARROW_COUNT,
-  END_COUNT,
   MAXIMUM_ARROW_SCORE,
-  summarizeRound,
+  ROUND_COUNT,
+  summarizeScorecard,
 } from "./scoring.ts";
 import type { ArrowScore } from "./scoring.ts";
 
-/** The heading for each arrow column, such as "E3A4" for End 3, arrow 4. */
+/** The heading for each arrow column, such as "R3A4" for Round 3, arrow 4. */
 export const ARROW_COLUMN_HEADINGS: readonly string[] = Object.freeze(
   Array.from({ length: ARROW_COUNT }, (_, arrowIndex) => {
-    const endNumber = Math.floor(arrowIndex / ARROWS_PER_END) + 1;
-    const arrowNumber = (arrowIndex % ARROWS_PER_END) + 1;
-    return `E${endNumber}A${arrowNumber}`;
+    const roundNumber = Math.floor(arrowIndex / ARROWS_PER_ROUND) + 1;
+    const arrowNumber = (arrowIndex % ARROWS_PER_ROUND) + 1;
+    return `R${roundNumber}A${arrowNumber}`;
   }),
+);
+
+/** Arrow headings in files exported before the rename, such as "E3A4" for End 3. */
+const LEGACY_ARROW_COLUMN_HEADINGS: readonly string[] = ARROW_COLUMN_HEADINGS.map(
+  (heading) => `E${heading.slice(1)}`,
 );
 
 /** Column headings, in order. */
@@ -33,7 +38,7 @@ export const COLUMN_HEADINGS: readonly string[] = Object.freeze([
   "Date",
   "Archer",
   "Shooter #",
-  ...Array.from({ length: END_COUNT }, (_, endIndex) => `End ${endIndex + 1}`),
+  ...Array.from({ length: ROUND_COUNT }, (_, roundIndex) => `Round ${roundIndex + 1}`),
   "10 m",
   "15 m",
   "Total",
@@ -48,41 +53,41 @@ export const COLUMN_HEADINGS: readonly string[] = Object.freeze([
 const BYTE_ORDER_MARK = "﻿";
 
 /**
- * Builds a CSV file from the rounds, ready to download.
+ * Builds a CSV file from the scorecards, ready to download.
  *
- * @param rounds In the order they should appear.
+ * @param scorecards In the order they should appear.
  */
-export function createCsv(rounds: readonly PracticeRound[]): string {
-  const lines = [COLUMN_HEADINGS, ...rounds.map(getRoundCells)].map((cells) =>
+export function createCsv(scorecards: readonly Scorecard[]): string {
+  const lines = [COLUMN_HEADINGS, ...scorecards.map(getScorecardCells)].map((cells) =>
     cells.map(quoteCsvCell).join(","),
   );
   return BYTE_ORDER_MARK + lines.join("\r\n");
 }
 
 /**
- * Builds tab-separated text from the rounds, for pasting into a spreadsheet.
+ * Builds tab-separated text from the scorecards, for pasting into a spreadsheet.
  *
- * @param rounds In the order they should appear.
+ * @param scorecards In the order they should appear.
  */
-export function createTabSeparatedText(rounds: readonly PracticeRound[]): string {
-  return [COLUMN_HEADINGS, ...rounds.map(getRoundCells)]
+export function createTabSeparatedText(scorecards: readonly Scorecard[]): string {
+  return [COLUMN_HEADINGS, ...scorecards.map(getScorecardCells)]
     .map((cells) => cells.map((cell) => String(cell).replace(/[\t\r\n]/g, " ")).join("\t"))
     .join("\n");
 }
 
-/** Returns one round's values in {@link COLUMN_HEADINGS} order. */
-function getRoundCells(round: PracticeRound): Array<string | number> {
-  const summary = summarizeRound(round.arrowScores);
+/** Returns one scorecard's values in {@link COLUMN_HEADINGS} order. */
+function getScorecardCells(scorecard: Scorecard): Array<string | number> {
+  const summary = summarizeScorecard(scorecard.arrowScores);
   return [
-    round.date,
-    round.archer,
-    round.shooterNumber,
-    ...summary.endTotals,
+    scorecard.date,
+    scorecard.archer,
+    scorecard.shooterNumber,
+    ...summary.roundTotals,
     summary.tenMeterTotal,
     summary.fifteenMeterTotal,
     summary.total,
     summary.tensCount,
-    ...round.arrowScores.map((score) => score ?? ""),
+    ...scorecard.arrowScores.map((score) => score ?? ""),
   ];
 }
 
@@ -154,21 +159,21 @@ export class UnrecognizedCsvError extends Error {
   }
 }
 
-/** The rounds read from a CSV file. */
+/** The scorecards read from a CSV file. */
 export interface CsvImport {
-  rounds: NewPracticeRound[];
+  scorecards: NewScorecard[];
   /** Rows skipped because a score wasn't a whole number from 0 to 10. */
   unreadableRowCount: number;
 }
 
 /**
- * Reads rounds from a CSV file exported by this app. Columns may be in any
+ * Reads scorecards from a CSV file exported by this app. Columns may be in any
  * order, and extra columns are ignored, so a file that has been opened and
  * re-saved in a spreadsheet still imports.
  *
  * @throws {UnrecognizedCsvError} When the date or arrow columns are missing.
  */
-export function readRoundsFromCsv(text: string): CsvImport {
+export function readScorecardsFromCsv(text: string): CsvImport {
   const [headingRow = [], ...dataRows] = parseCsv(text);
   const headings = headingRow.map((heading) => heading.trim());
   const columnOf = (heading: string): number => headings.indexOf(heading);
@@ -176,12 +181,15 @@ export function readRoundsFromCsv(text: string): CsvImport {
   const dateColumn = columnOf("Date");
   const archerColumn = columnOf("Archer");
   const shooterColumn = columnOf("Shooter #");
-  const arrowColumns = ARROW_COLUMN_HEADINGS.map(columnOf);
+  let arrowColumns = ARROW_COLUMN_HEADINGS.map(columnOf);
+  if (arrowColumns.some((column) => column < 0)) {
+    arrowColumns = LEGACY_ARROW_COLUMN_HEADINGS.map(columnOf);
+  }
   if (dateColumn < 0 || arrowColumns.some((column) => column < 0)) {
     throw new UnrecognizedCsvError();
   }
 
-  const rounds: NewPracticeRound[] = [];
+  const scorecards: NewScorecard[] = [];
   let unreadableRowCount = 0;
   const importedAt = Date.now();
 
@@ -192,16 +200,16 @@ export function readRoundsFromCsv(text: string): CsvImport {
       unreadableRowCount++;
       continue;
     }
-    rounds.push({
+    scorecards.push({
       date: cellAt(dateColumn) || getTodayAsIsoDate(),
       archer: cellAt(archerColumn),
       shooterNumber: cellAt(shooterColumn),
       arrowScores,
-      // Keep imported rounds in file order when they share a date.
-      createdAt: importedAt + rounds.length,
+      // Keep imported scorecards in file order when they share a date.
+      createdAt: importedAt + scorecards.length,
     });
   }
-  return { rounds, unreadableRowCount };
+  return { scorecards, unreadableRowCount };
 }
 
 /**

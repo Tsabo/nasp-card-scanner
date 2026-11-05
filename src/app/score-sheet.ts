@@ -6,15 +6,15 @@
 import { getTodayAsIsoDate } from "./dates.ts";
 import { createElement, getElement } from "./page-helpers.ts";
 import {
-  ARROWS_PER_END,
+  ARROWS_PER_ROUND,
   ARROW_COUNT,
-  END_COUNT,
   MAXIMUM_ARROW_SCORE,
-  TEN_METER_END_COUNT,
+  ROUND_COUNT,
+  TEN_METER_ROUND_COUNT,
   createBlankScores,
   describeArrow,
-  isEndIncomplete,
-  summarizeRound,
+  isRoundIncomplete,
+  summarizeScorecard,
 } from "./scoring.ts";
 import type { ArrowScore } from "./scoring.ts";
 
@@ -35,7 +35,7 @@ export interface SheetContents {
 }
 
 /** The details typed in above the arrows. */
-export interface RoundDetails {
+export interface ScorecardDetails {
   archer: string;
   /** "YYYY-MM-DD". */
   date: string;
@@ -59,11 +59,11 @@ export class ScoreSheet {
   private readonly elements = {
     archerInput: getElement("archer-input", HTMLInputElement),
     archerNames: getElement("archer-names", HTMLDataListElement),
-    dateInput: getElement("round-date-input", HTMLInputElement),
+    dateInput: getElement("scorecard-date-input", HTMLInputElement),
     shooterNumberInput: getElement("shooter-number-input", HTMLInputElement),
-    endsContainer: getElement("ends-container", HTMLDivElement),
+    roundsContainer: getElement("rounds-container", HTMLDivElement),
     reviewList: getElement("review-list", HTMLDivElement),
-    roundTotal: getElement("round-total", HTMLSpanElement),
+    scorecardTotal: getElement("scorecard-total", HTMLSpanElement),
     tenMeterTotal: getElement("ten-meter-total", HTMLElement),
     fifteenMeterTotal: getElement("fifteen-meter-total", HTMLElement),
     tensCount: getElement("tens-count", HTMLElement),
@@ -71,12 +71,12 @@ export class ScoreSheet {
   };
 
   private readonly arrowSelects: HTMLSelectElement[] = [];
-  private readonly endTotalElements: HTMLSpanElement[] = [];
+  private readonly roundTotalElements: HTMLSpanElement[] = [];
   /** One per distance: 10 m, then 15 m. */
   private readonly distanceTotalElements: HTMLSpanElement[] = [];
 
   constructor() {
-    this.buildEndRows();
+    this.buildRoundRows();
     this.elements.dateInput.value = getTodayAsIsoDate();
     this.elements.shooterNumberInput.addEventListener("input", () =>
       this.handleShooterNumberInput(),
@@ -118,7 +118,7 @@ export class ScoreSheet {
     return [...this.arrowFlags];
   }
 
-  getRoundDetails(): RoundDetails {
+  getScorecardDetails(): ScorecardDetails {
     return {
       archer: this.elements.archerInput.value.trim(),
       date: this.elements.dateInput.value || getTodayAsIsoDate(),
@@ -136,7 +136,7 @@ export class ScoreSheet {
     this.elements.archerInput.focus();
   }
 
-  /** Moves the keyboard focus to End 1, arrow 1. */
+  /** Moves the keyboard focus to Round 1, arrow 1. */
   focusFirstArrow(): void {
     this.arrowSelects[0].focus();
   }
@@ -153,35 +153,37 @@ export class ScoreSheet {
   }
 
   /**
-   * Creates the six end rows, each with five arrow pickers and a total,
+   * Creates the six round rows, each with five arrow pickers and a total,
    * plus a heading before each distance.
    */
-  private buildEndRows(): void {
-    const container = this.elements.endsContainer;
+  private buildRoundRows(): void {
+    const container = this.elements.roundsContainer;
     container.replaceChildren();
 
-    for (let endIndex = 0; endIndex < END_COUNT; endIndex++) {
-      if (endIndex === 0 || endIndex === TEN_METER_END_COUNT) {
+    for (let roundIndex = 0; roundIndex < ROUND_COUNT; roundIndex++) {
+      if (roundIndex === 0 || roundIndex === TEN_METER_ROUND_COUNT) {
         const heading = createElement("div", { className: "distance-heading" });
         const distanceTotal = createElement("span", { className: "numeric", text: 0 });
         heading.append(
-          createElement("h3", { text: endIndex === 0 ? "10 meters" : "15 meters" }),
+          createElement("h3", { text: roundIndex === 0 ? "10 meters" : "15 meters" }),
           distanceTotal,
         );
         this.distanceTotalElements.push(distanceTotal);
         container.append(heading);
       }
 
-      const row = createElement("div", { className: "end-row" });
-      row.append(createElement("span", { className: "end-label", text: `End ${endIndex + 1}` }));
-      for (let arrowInEnd = 0; arrowInEnd < ARROWS_PER_END; arrowInEnd++) {
-        const select = this.createArrowSelect(endIndex * ARROWS_PER_END + arrowInEnd);
+      const row = createElement("div", { className: "round-row" });
+      row.append(
+        createElement("span", { className: "round-label", text: `Round ${roundIndex + 1}` }),
+      );
+      for (let arrowInRound = 0; arrowInRound < ARROWS_PER_ROUND; arrowInRound++) {
+        const select = this.createArrowSelect(roundIndex * ARROWS_PER_ROUND + arrowInRound);
         this.arrowSelects.push(select);
         row.append(select);
       }
-      const endTotal = createElement("span", { className: "end-total" });
-      this.endTotalElements.push(endTotal);
-      row.append(endTotal);
+      const roundTotal = createElement("span", { className: "round-total" });
+      this.roundTotalElements.push(roundTotal);
+      row.append(roundTotal);
       container.append(row);
     }
   }
@@ -217,7 +219,7 @@ export class ScoreSheet {
 
   /** Updates everything on the sheet from the current scores and flags. */
   private render(): void {
-    const summary = summarizeRound(this.arrowScores);
+    const summary = summarizeScorecard(this.arrowScores);
 
     this.arrowSelects.forEach((select, arrowIndex) => {
       const score = this.arrowScores[arrowIndex];
@@ -229,14 +231,14 @@ export class ScoreSheet {
       select.title = flag ?? "";
     });
 
-    this.endTotalElements.forEach((element, endIndex) => {
-      element.textContent = String(summary.endTotals[endIndex]);
-      element.classList.toggle("is-incomplete", isEndIncomplete(this.arrowScores, endIndex));
+    this.roundTotalElements.forEach((element, roundIndex) => {
+      element.textContent = String(summary.roundTotals[roundIndex]);
+      element.classList.toggle("is-incomplete", isRoundIncomplete(this.arrowScores, roundIndex));
     });
 
     this.distanceTotalElements[0].textContent = String(summary.tenMeterTotal);
     this.distanceTotalElements[1].textContent = String(summary.fifteenMeterTotal);
-    this.elements.roundTotal.textContent = String(summary.total);
+    this.elements.scorecardTotal.textContent = String(summary.total);
     this.elements.tenMeterTotal.textContent = String(summary.tenMeterTotal);
     this.elements.fifteenMeterTotal.textContent = String(summary.fifteenMeterTotal);
     this.elements.tensCount.textContent = String(summary.tensCount);

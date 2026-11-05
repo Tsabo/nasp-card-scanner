@@ -1,7 +1,7 @@
 {
   "name": "NASP Card Scanner",
   "short_name": "NASP Scan",
-  "description": "Read NASP practice score cards from a photo, total each end, and export the scores to a spreadsheet.",
+  "description": "Read NASP practice score cards from a photo, total each round, and export the scores to a spreadsheet.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

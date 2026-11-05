@@ -4,15 +4,15 @@
  *
  * - {@link PhotoPanel}: shows the photo and runs the reader.
  * - {@link ScoreSheet}: the editable scores and totals.
- * - {@link PracticeLogStore}: saved rounds, kept in this browser.
- * - {@link renderPracticeLog}: the table of saved rounds.
+ * - {@link PracticeLogStore}: saved scorecards, kept in this browser.
+ * - {@link renderPracticeLog}: the table of saved scorecards.
  */
 
 import type { CardReadResult } from "../reader/analyze-card.ts";
 import {
   createCsv,
   createTabSeparatedText,
-  readRoundsFromCsv,
+  readScorecardsFromCsv,
   UnrecognizedCsvError,
 } from "./csv.ts";
 import type { CsvImport } from "./csv.ts";
@@ -24,9 +24,9 @@ import { PhotoPanel } from "./photo-panel.ts";
 import { PracticeLogStore, StorageUnavailableError } from "./practice-log-store.ts";
 import type { AddManyResult } from "./practice-log-store.ts";
 import { getArcherNames, renderPracticeLog } from "./practice-log-view.ts";
-import { sortNewestFirst } from "./practice-round.ts";
+import { sortNewestFirst } from "./scorecard.ts";
 import { ScoreSheet } from "./score-sheet.ts";
-import { ARROW_COUNT, summarizeRound } from "./scoring.ts";
+import { ARROW_COUNT, summarizeScorecard } from "./scoring.ts";
 
 /** The simulated card shown when the page first opens. */
 const SAMPLE_CARD_URL = "assets/sample-card.jpg";
@@ -43,7 +43,7 @@ const MESSAGES = {
   needsArcher: "Add the archer's name or shooter number first.",
   noScores: "There are no scores to save yet.",
   cannotSave:
-    "This browser wouldn't save the round. Its storage may be full or blocked in private browsing.",
+    "This browser wouldn't save the scorecard. Its storage may be full or blocked in private browsing.",
   storageBlocked:
     "This browser isn't letting the page save (private browsing?). Export before you close it.",
   copyBlocked:
@@ -63,7 +63,7 @@ function startApp(): void {
     "click",
     enterScoresByHand,
   );
-  getElement("save-round-button", HTMLButtonElement).addEventListener("click", saveRound);
+  getElement("save-scorecard-button", HTMLButtonElement).addEventListener("click", saveScorecard);
   getElement("download-csv-button", HTMLButtonElement).addEventListener("click", downloadCsv);
   getElement("copy-for-spreadsheet-button", HTMLButtonElement).addEventListener(
     "click",
@@ -224,9 +224,9 @@ function redrawPhoto(): void {
 // Saving and the practice log
 // ---------------------------------------------------------------------------
 
-/** Saves the score sheet as a new round in the practice log. */
-function saveRound(): void {
-  const details = scoreSheet.getRoundDetails();
+/** Saves the score sheet as a new scorecard in the practice log. */
+function saveScorecard(): void {
+  const details = scoreSheet.getScorecardDetails();
   const arrowScores = scoreSheet.getArrowScores();
   const blankCount = arrowScores.filter((score) => score === null).length;
 
@@ -252,7 +252,7 @@ function saveRound(): void {
 
   refreshPracticeLog();
   const who = details.archer || `#${details.shooterNumber}`;
-  showToast(`Saved ${who}: ${summarizeRound(arrowScores).total}`);
+  showToast(`Saved ${who}: ${summarizeScorecard(arrowScores).total}`);
   setSaveMessage(
     blankCount === 0
       ? "Saved. Scan the next card when you're ready."
@@ -260,23 +260,23 @@ function saveRound(): void {
   );
 }
 
-/** Deletes a round from the practice log. */
-function deleteRound(roundId: string): void {
+/** Deletes a scorecard from the practice log. */
+function deleteScorecard(scorecardId: string): void {
   try {
-    practiceLog.remove(roundId);
-    showToast("Round deleted");
+    practiceLog.remove(scorecardId);
+    showToast("Scorecard deleted");
   } catch {
-    showToast("Couldn't delete that round. Try again.");
+    showToast("Couldn't delete that scorecard. Try again.");
   }
   refreshPracticeLog();
 }
 
 /** Redraws the log table and the export buttons, and updates name suggestions. */
 function refreshPracticeLog(): void {
-  const rounds = practiceLog.getAll();
-  renderPracticeLog(rounds, deleteRound);
-  scoreSheet.setArcherSuggestions(getArcherNames(rounds));
-  const isEmpty = rounds.length === 0;
+  const scorecards = practiceLog.getAll();
+  renderPracticeLog(scorecards, deleteScorecard);
+  scoreSheet.setArcherSuggestions(getArcherNames(scorecards));
+  const isEmpty = scorecards.length === 0;
   getElement("download-csv-button", HTMLButtonElement).disabled = isEmpty;
   getElement("copy-for-spreadsheet-button", HTMLButtonElement).disabled = isEmpty;
 }
@@ -301,10 +301,10 @@ function clearSaveMessage(): void {
 
 /** Downloads the whole log as a CSV file. */
 function downloadCsv(): void {
-  const rounds = sortNewestFirst(practiceLog.getAll());
+  const scorecards = sortNewestFirst(practiceLog.getAll());
   downloadTextFile(
     `nasp-practice-${getTodayAsIsoDate()}.csv`,
-    createCsv(rounds),
+    createCsv(scorecards),
     "text/csv;charset=utf-8",
   );
   showToast("CSV downloaded");
@@ -312,11 +312,13 @@ function downloadCsv(): void {
 
 /** Copies the whole log as tab-separated text, ready to paste into a spreadsheet. */
 async function copyForSpreadsheet(): Promise<void> {
-  const rounds = sortNewestFirst(practiceLog.getAll());
-  const text = createTabSeparatedText(rounds);
+  const scorecards = sortNewestFirst(practiceLog.getAll());
+  const text = createTabSeparatedText(scorecards);
   try {
     await navigator.clipboard.writeText(text);
-    showToast(`Copied ${formatCount(rounds.length, "round")}. Paste into Excel or Google Sheets.`);
+    showToast(
+      `Copied ${formatCount(scorecards.length, "scorecard")}. Paste into Excel or Google Sheets.`,
+    );
   } catch {
     // Some browsers block the clipboard. Show the text so it can be copied by hand.
     getElement("copy-fallback", HTMLDivElement).hidden = false;
@@ -329,13 +331,13 @@ async function copyForSpreadsheet(): Promise<void> {
 }
 
 /**
- * Adds the rounds from a CSV file (exported from this page, perhaps on
+ * Adds the scorecards from a CSV file (exported from this page, perhaps on
  * another device) to the log.
  */
 async function importCsv(file: File): Promise<void> {
   let imported: CsvImport;
   try {
-    imported = readRoundsFromCsv(await file.text());
+    imported = readScorecardsFromCsv(await file.text());
   } catch (error) {
     showToast(error instanceof UnrecognizedCsvError ? error.message : "Couldn't read that file.");
     return;
@@ -343,14 +345,14 @@ async function importCsv(file: File): Promise<void> {
 
   let result: AddManyResult;
   try {
-    result = practiceLog.addMany(imported.rounds);
+    result = practiceLog.addMany(imported.scorecards);
   } catch {
-    showToast("This browser wouldn't save the imported rounds.");
+    showToast("This browser wouldn't save the imported scorecards.");
     return;
   }
   refreshPracticeLog();
 
-  const parts = [`Imported ${formatCount(result.addedCount, "round")}`];
+  const parts = [`Imported ${formatCount(result.addedCount, "scorecard")}`];
   if (result.duplicateCount > 0) {
     parts.push(`${result.duplicateCount} already in the log`);
   }

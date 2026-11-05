@@ -27,14 +27,14 @@ In VS Code, install the **Prettier** extension and turn on format-on-save. Type 
 
 ## Conventions
 
-| Thing                            | Style                    | Example                            |
-| -------------------------------- | ------------------------ | ---------------------------------- |
-| Files                            | kebab-case               | `practice-log-store.ts`            |
-| Classes, interfaces, types       | PascalCase               | `PracticeLogStore`, `RoundSummary` |
-| Functions, variables, properties | camelCase                | `summarizeRound`, `arrowScores`    |
-| Module-level constants           | UPPER_SNAKE_CASE         | `ARROW_COUNT`                      |
-| CSS classes and element ids      | kebab-case               | `.end-total`, `#archer-input`      |
-| State classes in CSS             | `is-` or `needs-` prefix | `.is-ten`, `.needs-review`         |
+| Thing                            | Style                    | Example                                |
+| -------------------------------- | ------------------------ | -------------------------------------- |
+| Files                            | kebab-case               | `practice-log-store.ts`                |
+| Classes, interfaces, types       | PascalCase               | `PracticeLogStore`, `ScorecardSummary` |
+| Functions, variables, properties | camelCase                | `summarizeScorecard`, `arrowScores`    |
+| Module-level constants           | UPPER_SNAKE_CASE         | `ARROW_COUNT`                          |
+| CSS classes and element ids      | kebab-case               | `.round-total`, `#archer-input`        |
+| State classes in CSS             | `is-` or `needs-` prefix | `.is-ten`, `.needs-review`             |
 
 Some other habits:
 
@@ -49,19 +49,19 @@ Some other habits:
 
 Most of it will look familiar. The differences worth knowing:
 
-| C#                                  | TypeScript                                                                    |
-| ----------------------------------- | ----------------------------------------------------------------------------- |
-| `int? score`                        | `score: number \| null`                                                       |
-| `record RoundSummary(int Total, …)` | `interface RoundSummary { total: number; … }`                                 |
-| `List<int>`, `IReadOnlyList<int>`   | `number[]`, `readonly number[]`                                               |
-| `Dictionary<string, int>`           | `Map<string, number>` or `Record<string, number>`                             |
-| `public` / `private` / `readonly`   | Same keywords; members are public by default                                  |
-| `namespace` + `using`               | Each file is a module: `export` makes something public, `import` brings it in |
-| `enum BadgeKind { Sample, Read }`   | `type BadgeKind = "sample" \| "read"` (a union of string values)              |
-| `Task<T>`, `async`/`await`          | `Promise<T>`, `async`/`await`                                                 |
-| `obj as Foo` (checked cast)         | `obj as Foo` is unchecked; it only tells the compiler to trust you            |
+| C#                                      | TypeScript                                                                    |
+| --------------------------------------- | ----------------------------------------------------------------------------- |
+| `int? score`                            | `score: number \| null`                                                       |
+| `record ScorecardSummary(int Total, …)` | `interface ScorecardSummary { total: number; … }`                             |
+| `List<int>`, `IReadOnlyList<int>`       | `number[]`, `readonly number[]`                                               |
+| `Dictionary<string, int>`               | `Map<string, number>` or `Record<string, number>`                             |
+| `public` / `private` / `readonly`       | Same keywords; members are public by default                                  |
+| `namespace` + `using`                   | Each file is a module: `export` makes something public, `import` brings it in |
+| `enum BadgeKind { Sample, Read }`       | `type BadgeKind = "sample" \| "read"` (a union of string values)              |
+| `Task<T>`, `async`/`await`              | `Promise<T>`, `async`/`await`                                                 |
+| `obj as Foo` (checked cast)             | `obj as Foo` is unchecked; it only tells the compiler to trust you            |
 
-Interfaces are structural: any object with the right properties counts, whether or not it says `implements`. And the types exist only at compile time. At run time it's plain JavaScript, so data from outside (local storage, a CSV file) has to be checked by hand, as `normalizeStoredRound` and `readRoundsFromCsv` do.
+Interfaces are structural: any object with the right properties counts, whether or not it says `implements`. And the types exist only at compile time. At run time it's plain JavaScript, so data from outside (local storage, a CSV file) has to be checked by hand, as `normalizeStoredScorecard` and `readScorecardsFromCsv` do.
 
 The project only uses TypeScript features that compile by deleting the types: no `enum`, no `namespace`, and no constructor parameter properties. That's what lets Node run the tests and build scripts directly from `.ts` files. The compiler reports an error if one of those features sneaks in.
 

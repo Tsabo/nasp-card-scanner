@@ -7,7 +7,7 @@ import { analyzeCard } from "../src/reader/analyze-card.ts";
 import { solveLinearSystem3x3 } from "../src/reader/statistics.ts";
 
 /**
- * The sample card's arrows, as the archer meant them. End 3, arrow 4 (index
+ * The sample card's arrows, as the archer meant them. Round 3, arrow 4 (index
  * 13) is a 9, but a stray 6 is filled in too, so the reader should flag it.
  */
 const SAMPLE_CARD_SCORES = [

@@ -53,7 +53,7 @@ export interface TimingMarkResult extends Point {
 /** A successful read. */
 export interface CardReadSuccess {
   ok: true;
-  /** The 30 arrows, End 1 arrow 1 first. */
+  /** The 30 arrows, Round 1 arrow 1 first. */
   scores: RowResult[];
   /** The 5 shooter-number digits, first digit first. */
   shooter: RowResult[];

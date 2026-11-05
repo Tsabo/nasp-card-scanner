@@ -87,7 +87,7 @@ export function readCssVariable(propertyName: string): string {
 
 /**
  * Formats a count with the right singular or plural word, such as
- * "1 round" or "3 rounds".
+ * "1 scorecard" or "3 scorecards".
  *
  * @param plural Defaults to the singular plus "s".
  */

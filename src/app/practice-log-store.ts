@@ -1,15 +1,17 @@
 /**
  * @file Keeps the practice log in the browser's local storage.
  *
- * Local storage belongs to one browser on one device. To move rounds
+ * Local storage belongs to one browser on one device. To move scorecards
  * between devices, export a CSV on one and import it on the other.
  */
 
-import { getRoundIdentity, normalizeStoredRound } from "./practice-round.ts";
-import type { NewPracticeRound, PracticeRound } from "./practice-round.ts";
+import { getScorecardIdentity, normalizeStoredScorecard } from "./scorecard.ts";
+import type { NewScorecard, Scorecard } from "./scorecard.ts";
 
-/** Storage key. Unchanged since the first version, so existing logs carry over. */
-const STORAGE_KEY = "nasp-practice-log";
+const STORAGE_KEY = "nasp-scorecards";
+
+/** Where logs were kept before the rename; read once, then removed on the next save. */
+const LEGACY_STORAGE_KEY = "nasp-practice-log";
 
 /**
  * Thrown when the browser refuses to save, for example in private browsing
@@ -25,7 +27,7 @@ export class StorageUnavailableError extends Error {
 /** The outcome of {@link PracticeLogStore.addMany}. */
 export interface AddManyResult {
   addedCount: number;
-  /** Rounds skipped because they were already in the log. */
+  /** Scorecards skipped because they were already in the log. */
   duplicateCount: number;
 }
 
@@ -38,7 +40,7 @@ export interface AddManyResult {
  */
 export class PracticeLogStore {
   private readonly storage: Storage;
-  private rounds: PracticeRound[];
+  private scorecards: Scorecard[];
 
   /**
    * @param storage Where to keep the log. Defaults to the browser's local
@@ -46,54 +48,54 @@ export class PracticeLogStore {
    */
   constructor(storage: Storage = globalThis.localStorage) {
     this.storage = storage;
-    this.rounds = this.load();
+    this.scorecards = this.load();
   }
 
-  /** Returns every saved round, in the order they were added. */
-  getAll(): readonly PracticeRound[] {
-    return this.rounds;
+  /** Returns every saved scorecard, in the order they were added. */
+  getAll(): readonly Scorecard[] {
+    return this.scorecards;
   }
 
   /**
-   * Saves a new round.
+   * Saves a new scorecard.
    *
-   * @returns The saved round, with its id.
+   * @returns The saved scorecard, with its id.
    * @throws {StorageUnavailableError}
    */
-  add(round: NewPracticeRound): PracticeRound {
-    const saved: PracticeRound = { ...round, id: createRoundId() };
-    this.commit([...this.rounds, saved]);
+  add(scorecard: NewScorecard): Scorecard {
+    const saved: Scorecard = { ...scorecard, id: createScorecardId() };
+    this.commit([...this.scorecards, saved]);
     return saved;
   }
 
   /**
-   * Saves several rounds at once, skipping any that are already in the log.
+   * Saves several scorecards at once, skipping any that are already in the log.
    *
    * @throws {StorageUnavailableError}
    */
-  addMany(rounds: readonly NewPracticeRound[]): AddManyResult {
-    const knownRounds = new Set(this.rounds.map(getRoundIdentity));
-    const toAdd: PracticeRound[] = [];
-    for (const round of rounds) {
-      const identity = getRoundIdentity(round);
-      if (!knownRounds.has(identity)) {
-        knownRounds.add(identity);
-        toAdd.push({ ...round, id: createRoundId() });
+  addMany(scorecards: readonly NewScorecard[]): AddManyResult {
+    const knownScorecards = new Set(this.scorecards.map(getScorecardIdentity));
+    const toAdd: Scorecard[] = [];
+    for (const scorecard of scorecards) {
+      const identity = getScorecardIdentity(scorecard);
+      if (!knownScorecards.has(identity)) {
+        knownScorecards.add(identity);
+        toAdd.push({ ...scorecard, id: createScorecardId() });
       }
     }
     if (toAdd.length > 0) {
-      this.commit([...this.rounds, ...toAdd]);
+      this.commit([...this.scorecards, ...toAdd]);
     }
-    return { addedCount: toAdd.length, duplicateCount: rounds.length - toAdd.length };
+    return { addedCount: toAdd.length, duplicateCount: scorecards.length - toAdd.length };
   }
 
   /**
-   * Deletes a round.
+   * Deletes a scorecard.
    *
    * @throws {StorageUnavailableError}
    */
-  remove(roundId: string): void {
-    this.commit(this.rounds.filter((round) => round.id !== roundId));
+  remove(scorecardId: string): void {
+    this.commit(this.scorecards.filter((scorecard) => scorecard.id !== scorecardId));
   }
 
   /**
@@ -124,29 +126,32 @@ export class PracticeLogStore {
    *
    * @throws {StorageUnavailableError}
    */
-  private commit(rounds: PracticeRound[]): void {
+  private commit(scorecards: Scorecard[]): void {
     try {
-      this.storage.setItem(STORAGE_KEY, JSON.stringify(rounds));
+      this.storage.setItem(STORAGE_KEY, JSON.stringify(scorecards));
     } catch {
       throw new StorageUnavailableError();
     }
-    this.rounds = rounds;
+    this.storage.removeItem(LEGACY_STORAGE_KEY);
+    this.scorecards = scorecards;
   }
 
   /**
    * Reads the stored log. Returns an empty log if nothing is stored, the
    * stored data is damaged, or storage can't be read.
    */
-  private load(): PracticeRound[] {
+  private load(): Scorecard[] {
     try {
-      const stored: unknown = JSON.parse(this.storage.getItem(STORAGE_KEY) ?? "[]");
+      const stored: unknown = JSON.parse(
+        this.storage.getItem(STORAGE_KEY) ?? this.storage.getItem(LEGACY_STORAGE_KEY) ?? "[]",
+      );
       if (!Array.isArray(stored)) {
         return [];
       }
       return stored
-        .map(normalizeStoredRound)
-        .filter((round): round is PracticeRound => round !== null)
-        .map((round) => (round.id ? round : { ...round, id: createRoundId() }));
+        .map(normalizeStoredScorecard)
+        .filter((scorecard): scorecard is Scorecard => scorecard !== null)
+        .map((scorecard) => (scorecard.id ? scorecard : { ...scorecard, id: createScorecardId() }));
     } catch {
       return [];
     }
@@ -157,6 +162,6 @@ export class PracticeLogStore {
  * Creates an id that is unique within this browser's log: the time plus a
  * random suffix.
  */
-function createRoundId(): string {
-  return `round-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+function createScorecardId(): string {
+  return `scorecard-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }

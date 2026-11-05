@@ -3,7 +3,7 @@
  * marks' spacing against the card's known pattern.
  *
  * The card's marks are evenly spaced within each section, with wider gaps
- * between sections and a much wider gap between End 3 and End 4. That
+ * between sections and a much wider gap between Round 3 and Round 4. That
  * pattern only fits one way round, so matching it also tells the reader
  * which end of the track is the top of the card. Marks hidden by a finger
  * or a clip are filled in from the fitted pattern.
@@ -41,7 +41,7 @@ export interface RowAnchor extends Point {
    * Used as the unit for every other measurement.
    */
   markSpacing: number;
-  /** 0 to 5 for End 1 to 6, 6 for Shooter #. */
+  /** 0 to 5 for Round 1 to 6, 6 for Shooter #. */
   sectionIndex: number;
   /** False when the mark was hidden and its position was filled in from the pattern. */
   wasDetected: boolean;
@@ -51,7 +51,7 @@ export interface RowAnchor extends Point {
 export interface TrackAlignment {
   /** One per row, 35 in all, in card order. */
   rowAnchors: RowAnchor[];
-  /** Unit vector pointing from End 1 toward Shooter #. */
+  /** Unit vector pointing from Round 1 toward Shooter #. */
   downCard: Vector;
   /** Unit vector pointing from the timing marks toward the bubbles. */
   acrossCard: Vector;
@@ -232,7 +232,7 @@ function searchForBestMatch(detectedPositions: number[]): MatchResult | null {
 
   // Which detected marks to try at the start of the track.
   const startChoices = range(0, Math.min(4, detectedCount));
-  // Template marks to try: the first six, End 3 to End 5 for the middle, the last six.
+  // Template marks to try: the first six, Round 3 to Round 5 for the middle, the last six.
   const templateStartChoices = range(0, 6);
   const templateMiddleChoices = range(13, 24);
   const templateEndChoices = range(templateCount - 6, templateCount);
