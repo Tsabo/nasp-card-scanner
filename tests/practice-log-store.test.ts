@@ -120,6 +120,41 @@ describe("PracticeLogStore", () => {
     assert.equal(new PracticeLogStore(storage).getAll().length, 2);
   });
 
+  it("keeps scorecards saved under the old storage key after a rollback", () => {
+    const storage = new MemoryStorage();
+    new PracticeLogStore(storage).add(createScorecard("Kyle"));
+    const rollbackStorage = new MemoryStorage();
+    new PracticeLogStore(rollbackStorage).add(createScorecard("Ryan"));
+    storage.setItem("nasp-practice-log", rollbackStorage.getItem("nasp-scorecards") ?? "");
+
+    const store = new PracticeLogStore(storage);
+    assert.deepEqual(
+      store.getAll().map((scorecard) => scorecard.archer),
+      ["Kyle", "Ryan"],
+    );
+
+    store.add(createScorecard("Sam"));
+    assert.equal(storage.getItem("nasp-practice-log"), null);
+    assert.deepEqual(
+      new PracticeLogStore(storage).getAll().map((scorecard) => scorecard.archer),
+      ["Kyle", "Ryan", "Sam"],
+    );
+  });
+
+  it("doesn't duplicate a scorecard stored under both keys", () => {
+    const storage = new MemoryStorage();
+    new PracticeLogStore(storage).add(createScorecard("Kyle"));
+    storage.setItem("nasp-practice-log", storage.getItem("nasp-scorecards") ?? "");
+    assert.equal(new PracticeLogStore(storage).getAll().length, 1);
+  });
+
+  it("keeps the log when the old storage key is damaged", () => {
+    const storage = new MemoryStorage();
+    new PracticeLogStore(storage).add(createScorecard("Kyle"));
+    storage.setItem("nasp-practice-log", "{not json");
+    assert.equal(new PracticeLogStore(storage).getAll().length, 1);
+  });
+
   it("starts empty when the stored log is damaged", () => {
     const storage = new MemoryStorage();
     storage.setItem("nasp-scorecards", "{not json");

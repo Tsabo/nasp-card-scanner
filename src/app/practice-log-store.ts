@@ -10,7 +10,7 @@ import type { NewScorecard, Scorecard } from "./scorecard.ts";
 
 const STORAGE_KEY = "nasp-scorecards";
 
-/** Where logs were kept before the rename; read once, then removed on the next save. */
+/** Where logs were kept before the rename; merged on load, then removed on the next save. */
 const LEGACY_STORAGE_KEY = "nasp-practice-log";
 
 /**
@@ -137,14 +137,26 @@ export class PracticeLogStore {
   }
 
   /**
-   * Reads the stored log. Returns an empty log if nothing is stored, the
-   * stored data is damaged, or storage can't be read.
+   * Reads the stored log, adding any scorecards still under the legacy key.
+   * Both keys can hold scorecards if the app was rolled back to a version that
+   * saves under the legacy key, and the next save removes that key.
    */
   private load(): Scorecard[] {
+    const scorecards = this.readScorecards(STORAGE_KEY);
+    const knownScorecards = new Set(scorecards.map(getScorecardIdentity));
+    const legacyScorecards = this.readScorecards(LEGACY_STORAGE_KEY).filter(
+      (scorecard) => !knownScorecards.has(getScorecardIdentity(scorecard)),
+    );
+    return [...scorecards, ...legacyScorecards];
+  }
+
+  /**
+   * Reads the scorecards under one storage key. Returns none if nothing is
+   * stored, the stored data is damaged, or storage can't be read.
+   */
+  private readScorecards(key: string): Scorecard[] {
     try {
-      const stored: unknown = JSON.parse(
-        this.storage.getItem(STORAGE_KEY) ?? this.storage.getItem(LEGACY_STORAGE_KEY) ?? "[]",
-      );
+      const stored: unknown = JSON.parse(this.storage.getItem(key) ?? "[]");
       if (!Array.isArray(stored)) {
         return [];
       }
