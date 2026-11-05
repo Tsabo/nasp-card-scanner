@@ -129,6 +129,6 @@ The tuning numbers for each step are named constants at the top of its file. Whe
 ## Releasing a change
 
 1. Run `npm run check`.
-2. Push to `main`. The GitHub workflow checks, builds and publishes the site within a couple of minutes. A failed check stops the publish.
+2. Push to `master`. The GitHub workflow checks, builds and publishes the site within a couple of minutes. A failed check stops the publish.
 
 The service worker's cache version comes from a hash of the built files, so installed copies of the app pick up every change on their next visit. There's nothing to bump by hand.

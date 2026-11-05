@@ -1,4 +1,4 @@
-# Checks every push and pull request, and publishes main to GitHub Pages.
+# Checks every push and pull request, and publishes master to GitHub Pages.
 #
 # One-time setup: in the repository, open Settings → Pages and set
 # "Source" to "GitHub Actions".
@@ -6,7 +6,7 @@ name: Check and deploy
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
   workflow_dispatch: # Adds a "Run workflow" button on the Actions tab.
 
