@@ -18,7 +18,7 @@ import {
 } from "./csv.ts";
 import type { CsvImport } from "./csv.ts";
 import { getTodayAsIsoDate } from "./dates.ts";
-import { decodeImageFile, isImageFile, loadImageFromUrl } from "./image-loading.ts";
+import { decodeImageFile, drawScaledCopy, isImageFile, loadImageFromUrl } from "./image-loading.ts";
 import type { DecodedImage } from "./image-loading.ts";
 import { downloadFile, getElement, showToast } from "./page-helpers.ts";
 import { PhotoPanel } from "./photo-panel.ts";
@@ -34,14 +34,19 @@ import {
   rememberFormat,
 } from "./scorecard-format.ts";
 import type { ScorecardFormat } from "./scorecard-format.ts";
+import {
+  BLANK_CARD_LAYOUT_URL,
+  BLANK_CARD_URL,
+  SAMPLE_CARD_URL,
+  createBlankReading,
+  readBlankCardLayout,
+} from "./sample-card.ts";
 import { ScoreSheet } from "./score-sheet.ts";
+import type { CardPhoto } from "./score-sheet.ts";
 import { ScoreSheetView } from "./score-sheet-view.ts";
 import { summarizeScorecard } from "./scoring.ts";
 import { formatCount } from "./text.ts";
 import { createXlsx } from "./xlsx.ts";
-
-/** The simulated card shown when the page first opens. */
-const SAMPLE_CARD_URL = "assets/sample-card.jpg";
 
 const MESSAGES = {
   storageBlocked:
@@ -160,9 +165,37 @@ async function showSampleCard(): Promise<void> {
   );
 }
 
-/** Clears the sheet so every arrow can be typed in. */
+/** Clears the sheet so every arrow can be typed in, showing the blank sample card. */
 function enterScoresByHand(): void {
-  scoreSheet.enterByHand();
+  void scoreSheet.enterByHand(loadBlankCard());
+}
+
+/** The blank sample card, loaded the first time it's needed. */
+let blankCard: Promise<CardPhoto<HTMLCanvasElement>> | null = null;
+
+/**
+ * Loads the blank sample card and where its bubbles are. Nothing is read from
+ * the photo: the bubble positions were stored when the card was drawn. A
+ * failed load is tried again next time.
+ */
+function loadBlankCard(): Promise<CardPhoto<HTMLCanvasElement>> {
+  blankCard ??= Promise.all([
+    loadImageFromUrl(BLANK_CARD_URL),
+    fetch(BLANK_CARD_LAYOUT_URL).then((response) => {
+      if (!response.ok) {
+        throw new Error(`Couldn't load ${BLANK_CARD_LAYOUT_URL}.`);
+      }
+      return response.json() as Promise<unknown>;
+    }),
+  ]).then(([image, data]) => {
+    const layout = readBlankCardLayout(data);
+    const photo = drawScaledCopy(image);
+    return { image: photo, reading: createBlankReading(layout, photo.width / layout.width) };
+  });
+  blankCard.catch(() => {
+    blankCard = null;
+  });
+  return blankCard;
 }
 
 /** Redraws the photo and overlay, for a change of theme or of the overlay checkbox. */
