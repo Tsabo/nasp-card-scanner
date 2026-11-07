@@ -372,6 +372,7 @@ h2 {
 
 .form-field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 4px;
   font-size: 0.78rem;
@@ -383,12 +384,24 @@ h2 {
 .form-field select {
   width: 100%;
   min-width: 0;
-  padding: 9px 10px;
+  height: 2.5rem;
+  padding: 0 10px;
   border: 1px solid var(--color-border);
   border-radius: var(--control-radius);
   background: var(--color-page);
   color: var(--color-text);
   font: 500 1rem var(--font-body);
+}
+
+/* iOS Safari gives a native date input its own minimum width, height and
+   centered text, which push it out of its column into the next field. */
+.form-field input[type="date"] {
+  appearance: none;
+}
+
+.form-field input[type="date"]::-webkit-date-and-time-value {
+  margin: 0;
+  text-align: left;
 }
 
 .form-field input.needs-review {
