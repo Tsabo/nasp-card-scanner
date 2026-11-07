@@ -394,12 +394,16 @@ export class ScoreSheet<Photo> {
 
   /**
    * Blanks the sheet so every arrow can be typed in, and moves to the first
-   * arrow. The photo is hidden, since the card being typed in usually isn't
-   * the one in the photo.
+   * arrow. The coach's photo is hidden, since the card being typed in usually
+   * isn't the one in it.
+   *
+   * @param blankCard A blank card to show in its place, with rings for what's
+   *   typed. Shown when it arrives, unless a photo has been read since. If it
+   *   can't be loaded, no photo is shown.
    */
-  enterByHand(): void {
+  async enterByHand(blankCard?: Promise<CardPhoto<Photo>>): Promise<void> {
     this.hasCoachTakenOver = true;
-    this.photoReadCount++;
+    const readNumber = ++this.photoReadCount;
     const { archerFields, directory } = this.fields;
     this.update({
       ...blankScores(changeArcher(archerFields, "", directory), directory),
@@ -410,6 +414,18 @@ export class ScoreSheet<Photo> {
       saveMessage: NO_MESSAGE,
       focusRequest: 0,
     });
+    if (!blankCard) {
+      return;
+    }
+    let card: CardPhoto<Photo>;
+    try {
+      card = await blankCard;
+    } catch {
+      return;
+    }
+    if (readNumber === this.photoReadCount) {
+      this.update({ card });
+    }
   }
 
   /**

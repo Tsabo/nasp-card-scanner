@@ -4,7 +4,7 @@ Photograph a NASP practice score card and the page reads the bubbles, totals eac
 
 Everything runs in the browser. There's no server, no tracking, and photos never leave the device.
 
-This is an independent project. It isn't affiliated with, endorsed by or sponsored by the National Archery in the Schools Program (NASP). The NASP name and the official score card belong to their respective owners. The sample card in `assets/` is an original drawing that copies only the card's bubble and timing-mark layout, so the reader has something to show on first load.
+This is an independent project. It isn't affiliated with, endorsed by or sponsored by the National Archery in the Schools Program (NASP). The NASP name and the official score card belong to their respective owners. The sample cards in `assets/` are original drawings in the style of the official card, so the reader has something to show on first load. They follow its layout of bubbles, timing marks and black bars, but leave out its logos and form numbers.
 
 ## Using it at practice
 

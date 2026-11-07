@@ -616,3 +616,57 @@ describe("ScoreSheet: the overlay on the photo", () => {
     assert.deepEqual(sheet.getState().photo?.rings, []);
   });
 });
+
+describe("ScoreSheet: the blank card while entering by hand", () => {
+  const BLANK_CARD = {
+    image: "blank",
+    reading: createReading({
+      arrows: new Array(30).fill(null),
+      shooterDigits: new Array(5).fill(null),
+    }),
+  };
+
+  it("shows the blank card, with rings for what's typed", async () => {
+    const sheet = createSheet();
+    await sheet.enterByHand(Promise.resolve(BLANK_CARD));
+    assert.equal(sheet.getState().photo?.image, "blank");
+    assert.equal(sheet.getState().status.badge, "manual");
+    sheet.edit(0, "10");
+    sheet.edit("shooterNumber", "40712");
+    const rings = sheet.getState().photo?.rings ?? [];
+    assert.deepEqual(rings[0], { chosenBubble: 10, needsReview: false });
+    assert.deepEqual(rings[1], { chosenBubble: null, needsReview: false });
+    assert.deepEqual(
+      rings.slice(30).map((ring) => ring.chosenBubble),
+      [4, 0, 7, 1, 2],
+    );
+  });
+
+  it("leaves the photo hidden when the blank card won't load", async () => {
+    const sheet = createSheet();
+    await sheet.enterByHand(Promise.reject(new Error("offline")));
+    assert.equal(sheet.getState().photo, null);
+    assert.equal(sheet.getState().status.text, "Enter each arrow on the score sheet.");
+  });
+
+  it("doesn't show the blank card once a new photo is read", async () => {
+    const sheet = createSheet();
+    const blank = createDeferred<{ image: string; reading: CardReadResult }>();
+    const byHand = sheet.enterByHand(blank.promise);
+    await sheet.readPhoto(Promise.resolve({ image: "photo", reading: createReading() }));
+    blank.resolve(BLANK_CARD);
+    await byHand;
+    assert.equal(sheet.getState().photo?.image, "photo");
+  });
+
+  it("keeps what the coach typed while the blank card loaded", async () => {
+    const sheet = createSheet();
+    const blank = createDeferred<{ image: string; reading: CardReadResult }>();
+    const byHand = sheet.enterByHand(blank.promise);
+    sheet.edit(0, "8");
+    blank.resolve(BLANK_CARD);
+    await byHand;
+    assert.equal(sheet.getState().arrowScores[0], 8);
+    assert.equal(sheet.getState().photo?.image, "blank");
+  });
+});

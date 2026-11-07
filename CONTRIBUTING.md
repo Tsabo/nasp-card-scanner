@@ -92,6 +92,7 @@ src/
     xlsx.ts                Writes the Excel workbook (no outside libraries)
     dates.ts               Today's date in local time
     page-helpers.ts        Small helpers for finding and creating elements
+    sample-card.ts         The sample card, and its blank twin shown while entering by hand
     text.ts                Helpers for wording messages
   reader/                  The bubble reader (no page code; also runs in Node for tests)
     analyze-card.ts        Entry point: runs the steps below in order
@@ -107,13 +108,14 @@ src/
 service-worker/sw.ts       Offline support (compiled separately: it runs in a worker)
 tests/                     Unit tests (*.test.ts); tests/fixtures/ holds real card photos
 scripts/build.ts           Builds the site into _site/
+scripts/make-sample-card.py  Draws the sample cards in assets/ (run by hand; see below)
 scripts/serve.ts           Local web server for `npm start`
 tsconfig.base.json         Compiler settings shared by the three below
 tsconfig.json              The app (browser)
 tsconfig.sw.json           The service worker (worker)
 tsconfig.node.json         Tests and scripts (Node; type-checked only)
 manifest.webmanifest       Home-screen app details
-assets/                    Sample card and icons
+assets/                    Sample cards and icons
 assets/icons/alternative/  A spare icon design, with instructions for switching
 _site/                     Build output; not committed
 ```
@@ -130,6 +132,16 @@ The reader is an optical mark reader, like the machines that grade bubble tests,
 6. **Read marks.** Measures the lightest pixels inside each bubble, which ignores the printed digit, since an empty bubble always has bare paper between the strokes. It learns from the card itself what an empty bubble and a typical fill look like, then picks each row's bubble and flags blanks, double marks and faint marks.
 
 The tuning numbers for each step are named constants at the top of its file. When you change one, check the result against real card photos as well as `npm test`.
+
+## Redrawing the sample card
+
+`scripts/make-sample-card.py` draws the sample card, its blank twin, and `sample-card-blank.json`, which records where the blank card's bubbles are so the app can draw rings on it without running the reader. It reads the card's measurements from `card-layout.ts`, so a change there carries over. It needs Python 3.10 or later with Pillow and NumPy, and isn't part of the build:
+
+```sh
+pip install pillow numpy
+python scripts/make-sample-card.py
+npm test    # the reader must still read the sample, and the stored bubble positions must match
+```
 
 ## Releasing a change
 
