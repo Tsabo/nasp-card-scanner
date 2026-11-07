@@ -3,6 +3,18 @@
  * running totals, and the list of spots the reader wants checked.
  */
 
+import {
+  ArcherDirectory,
+  BLANK_ARCHER_FIELDS,
+  SHOOTER_NUMBER_LENGTH,
+  applyScannedNumber,
+  changeArcher,
+  changeShooterNumber,
+  findMismatchedNumber,
+  isPartialShooterNumber,
+  isShooterNumberFlagged,
+} from "./archer-fields.ts";
+import type { ArcherFields } from "./archer-fields.ts";
 import { getTodayAsIsoDate } from "./dates.ts";
 import { createElement, getElement } from "./page-helpers.ts";
 import {
@@ -70,7 +82,10 @@ interface ReviewItem {
 export class ScoreSheet {
   private arrowScores: ArrowScore[] = createBlankScores();
   private arrowFlags: ReviewFlag[] = new Array<ReviewFlag>(ARROW_COUNT).fill(null);
-  private shooterNumberNeedsReview = false;
+  private archerDirectory = new ArcherDirectory();
+  private archerFields: ArcherFields = BLANK_ARCHER_FIELDS;
+  /** Held back while typing, so a number isn't called unfinished too early. */
+  private isShooterNumberProblemShown = false;
   private readonly changeListeners: Array<() => void> = [];
   private readonly formatListeners: Array<(format: ScorecardFormat) => void> = [];
 
@@ -83,6 +98,8 @@ export class ScoreSheet {
     archerNames: getElement("archer-names", HTMLDataListElement),
     dateInput: getElement("scorecard-date-input", HTMLInputElement),
     shooterNumberInput: getElement("shooter-number-input", HTMLInputElement),
+    shooterNumberHint: getElement("shooter-number-hint", HTMLElement),
+    shooterNumberProblem: getElement("shooter-number-problem", HTMLElement),
     roundsContainer: getElement("rounds-container", HTMLDivElement),
     reviewList: getElement("review-list", HTMLDivElement),
     scorecardTotal: getElement("scorecard-total", HTMLSpanElement),
@@ -105,6 +122,21 @@ export class ScoreSheet {
     this.elements.shooterNumberInput.addEventListener("input", () =>
       this.handleShooterNumberInput(),
     );
+    this.elements.shooterNumberInput.addEventListener("blur", () => {
+      this.isShooterNumberProblemShown = isPartialShooterNumber(
+        this.elements.shooterNumberInput.value,
+      );
+      this.render();
+    });
+    this.elements.archerInput.addEventListener("input", () => {
+      this.archerFields = changeArcher(
+        this.archerFields,
+        this.elements.archerInput.value,
+        this.archerDirectory,
+      );
+      this.isShooterNumberProblemShown = false;
+      this.render();
+    });
     this.render();
   }
 
@@ -128,8 +160,12 @@ export class ScoreSheet {
   showReading(contents: SheetContents): void {
     this.arrowScores = [...contents.arrowScores];
     this.arrowFlags = [...contents.arrowFlags];
-    this.shooterNumberNeedsReview = contents.shooterNumberNeedsReview;
-    this.elements.shooterNumberInput.value = contents.shooterNumber;
+    this.archerFields = applyScannedNumber(
+      this.archerFields,
+      { shooterNumber: contents.shooterNumber, needsReview: contents.shooterNumberNeedsReview },
+      this.archerDirectory,
+    );
+    this.isShooterNumberProblemShown = false;
     this.render();
   }
 
@@ -167,7 +203,26 @@ export class ScoreSheet {
 
   /** Empties the archer's name, so the next card isn't saved under the last archer. */
   clearArcher(): void {
-    this.elements.archerInput.value = "";
+    this.archerFields = changeArcher(this.archerFields, "", this.archerDirectory);
+    this.render();
+  }
+
+  /** Points out an unfinished Shooter # and moves the keyboard focus to it. */
+  showShooterNumberProblem(): void {
+    this.isShooterNumberProblemShown = true;
+    this.render();
+    this.elements.shooterNumberInput.focus();
+  }
+
+  /** Returns how many spots are listed for a person to check. */
+  getReviewCount(): number {
+    return this.getReviewItems().length;
+  }
+
+  /** Sets what the log knows about archers, for filling in names and numbers. */
+  setArcherDirectory(directory: ArcherDirectory): void {
+    this.archerDirectory = directory;
+    this.render();
   }
 
   /**
@@ -300,12 +355,41 @@ export class ScoreSheet {
     return select;
   }
 
-  /** Keeps the shooter number to five digits as it's typed. */
+  /** Keeps the Shooter # to digits as it's typed. */
   private handleShooterNumberInput(): void {
     const input = this.elements.shooterNumberInput;
-    input.value = input.value.replace(/\D/g, "").slice(0, 5);
-    this.shooterNumberNeedsReview = false;
+    input.value = input.value.replace(/\D/g, "").slice(0, SHOOTER_NUMBER_LENGTH);
+    this.archerFields = changeShooterNumber(this.archerFields, input.value, this.archerDirectory);
+    this.isShooterNumberProblemShown = false;
     this.render();
+  }
+
+  /** Shows the archer and Shooter #, and whether the number needs attention. */
+  private renderArcherFields(): void {
+    const { archerInput, shooterNumberInput, shooterNumberHint, shooterNumberProblem } =
+      this.elements;
+    const { archer, shooterNumber } = this.archerFields;
+    // Only write when different, so the cursor doesn't jump while someone types.
+    if (archerInput.value !== archer) {
+      archerInput.value = archer;
+    }
+    if (shooterNumberInput.value !== shooterNumber) {
+      shooterNumberInput.value = shooterNumber;
+    }
+
+    const isUnfinished = this.isShooterNumberProblemShown && isPartialShooterNumber(shooterNumber);
+    shooterNumberHint.classList.toggle("is-hidden", isUnfinished);
+    shooterNumberProblem.classList.toggle("is-hidden", !isUnfinished);
+    shooterNumberProblem.textContent = isUnfinished
+      ? `${shooterNumber.length} of ${SHOOTER_NUMBER_LENGTH} digits entered. Add any leading zeros.`
+      : "";
+    shooterNumberInput.setAttribute("aria-invalid", String(isUnfinished));
+    shooterNumberInput.classList.toggle(
+      "needs-review",
+      isUnfinished ||
+        isShooterNumberFlagged(this.archerFields) ||
+        findMismatchedNumber(this.archerFields, this.archerDirectory) !== null,
+    );
   }
 
   /** Updates everything on the sheet from the current scores and flags. */
@@ -344,19 +428,13 @@ export class ScoreSheet {
     this.elements.fifteenMeterTotal.textContent = String(summary.fifteenMeterTotal);
     this.elements.tensCount.textContent = String(summary.tensCount);
     this.elements.arrowsEntered.textContent = String(summary.arrowsEntered);
-    this.elements.shooterNumberInput.classList.toggle(
-      "needs-review",
-      this.shooterNumberNeedsReview,
-    );
 
+    this.renderArcherFields();
     this.renderReviewList();
   }
 
-  /**
-   * Lists every spot the reader wants a person to check. Each entry is a
-   * button that jumps to the arrow in question.
-   */
-  private renderReviewList(): void {
+  /** Collects every spot a person should check, in the order they're listed. */
+  private getReviewItems(): ReviewItem[] {
     const items: ReviewItem[] = [];
     this.arrowFlags.forEach((flag, arrowIndex) => {
       if (flag !== null) {
@@ -367,14 +445,30 @@ export class ScoreSheet {
         });
       }
     });
-    if (this.shooterNumberNeedsReview) {
+    if (isShooterNumberFlagged(this.archerFields)) {
       items.push({
         label: "Shooter #",
         message: SHOOTER_NUMBER_REVIEW_MESSAGE,
         target: this.elements.shooterNumberInput,
       });
     }
+    const mismatchedNumber = findMismatchedNumber(this.archerFields, this.archerDirectory);
+    if (mismatchedNumber !== null) {
+      items.push({
+        label: "Shooter #",
+        message: `${this.archerFields.archer.trim()}'s last scorecard used ${mismatchedNumber}`,
+        target: this.elements.shooterNumberInput,
+      });
+    }
+    return items;
+  }
 
+  /**
+   * Lists every spot a person should check. Each entry is a button that jumps
+   * to the control in question.
+   */
+  private renderReviewList(): void {
+    const items = this.getReviewItems();
     const list = this.elements.reviewList;
     list.replaceChildren();
     if (items.length === 0) {

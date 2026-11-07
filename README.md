@@ -9,14 +9,16 @@ This is an independent project. It isn't affiliated with, endorsed by or sponsor
 ## Using it at practice
 
 - **Take photo** opens the phone camera. **Upload image** picks an existing photo.
-- The reader marks what it saw on the photo. Spots it isn't sure about (two bubbles filled, a faint mark, a blank row) are outlined in amber and listed under the score sheet.
-- Tap any arrow to change it, add the archer's name, then **Save to log**.
+- The reader marks what it saw on the photo. Spots it isn't sure about (two bubbles filled, a faint mark, a blank row) are outlined in amber and listed under the score sheet. A completely blank Shooter # section isn't flagged, since it's optional.
+- Tap any arrow to change it, add the archer's name, then **Save to log**. A scorecard needs a name or a Shooter #. A Shooter # needs all five digits, including any leading zeros (`00123`), or it can be left blank.
+- The log remembers archers. Choosing a known name fills in their latest Shooter #, and a known Shooter # fills in a blank name. A number that was read cleanly or typed by hand is never replaced. If it differs from the archer's last scorecard, it's listed for you to check, and you can still save it.
 - Choose **Bullseye** or **3D** for each scorecard. For 3D, also choose the **Side** and the **First animal**, the one shot in Round 1. The archer moves to the next animal after each round. On the left side the order is Alert Turkey, Coyote, Cinnamon Bear / Black Bear, Pronghorn Antelope, Alert Deer / White-tailed Deer, Standing Stone Sheep / Mountain Sheep, then back to the turkey. On the right side it's the reverse, from the sheep to the turkey, then back to the sheep.
 - The **Log** has a tab for each format.
 - **Download Excel** saves the whole log as one workbook, with a `Bullseye` sheet and a `3D` sheet.
 - **Download CSV** saves the tab that's showing, with one row per scorecard. A Bullseye row has the date, archer, shooter number, the six round totals, the 10 m and 15 m subtotals, the total, the count of 10s, and every arrow (`R1A1` to `R6A5`). A 3D row adds the format, side and first animal, puts each round's animal beside its total, and leaves out the 10 m and 15 m subtotals.
 - **Import CSV** adds each row to its own format's tab, whichever tab is showing. It also accepts older files with `E1A1` to `E6A5` columns, and counts files without a `Format` column as Bullseye and 3D rows without a `Side` as the left side.
 - **Copy for spreadsheet** copies the tab that's showing, so it pastes straight into Excel or Google Sheets.
+- **Leading zeros:** Excel usually drops them when it opens a CSV or receives pasted data, turning `00123` into `123`. Use **Download Excel** for spreadsheets, and don't import a CSV that's been saved from Excel. Import keeps short numbers as they are, so they'd count as new scorecards and wouldn't be used to fill in names.
 
 ### Add it to the home screen
 

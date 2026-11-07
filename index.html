@@ -156,15 +156,20 @@
               Date
               <input id="scorecard-date-input" type="date" />
             </label>
-            <label class="form-field">
-              Shooter #
+            <div class="form-field">
+              <label for="shooter-number-input">Shooter #</label>
               <input
                 id="shooter-number-input"
                 inputmode="numeric"
                 maxlength="5"
                 placeholder="5 digits"
+                aria-describedby="shooter-number-help"
               />
-            </label>
+              <div id="shooter-number-help" class="field-help" aria-live="polite">
+                <span id="shooter-number-hint">5 digits, including leading zeros, like 00123</span>
+                <span id="shooter-number-problem" class="field-problem is-hidden"></span>
+              </div>
+            </div>
             <!-- All filled in by score-sheet.js. -->
             <label class="form-field">
               Format
