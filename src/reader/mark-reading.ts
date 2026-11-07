@@ -15,8 +15,16 @@ import type { ImageMap } from "./image-maps.ts";
 import { lowerQuartile, median } from "./statistics.ts";
 
 /** Size of the oval sampled inside each bubble, as shares of the bubble and mark spacing. */
-const FILL_HALF_LENGTH_PER_BUBBLE_SPACING = 0.2;
-const FILL_HALF_WIDTH_PER_MARK_SPACING = 0.18;
+const FILL_HALF_LENGTH_PER_BUBBLE_SPACING = 0.26;
+const FILL_HALF_WIDTH_PER_MARK_SPACING = 0.2;
+
+/**
+ * Share of each oval's samples, lightest first, that are averaged into its
+ * fill. An empty bubble always has bare paper between the strokes of its
+ * printed digit, and a filled one doesn't. Measuring only the lightest samples
+ * ignores the digit, so a printed "10" doesn't look half filled.
+ */
+const LIGHTEST_SAMPLE_SHARE = 0.4;
 
 /** No real fill is fainter than this, however light the card's marks are. */
 const ABSOLUTE_MINIMUM_FILL = 0.09;
@@ -68,7 +76,7 @@ export function measureBubbleFills(row: RowBubbles, darkness: ImageMap): number[
 }
 
 /**
- * Averages the darkness over an oval of sample points centred on a bubble.
+ * Measures how dark the paper inside a bubble is, ignoring its printed digit.
  *
  * @param row Supplies the row's directions.
  * @param halfLength Half the oval's length along the row, in pixels.
@@ -82,24 +90,30 @@ function measureOval(
   halfWidth: number,
 ): number {
   const { alongRow, acrossRow } = row;
-  let total = 0;
-  let sampleCount = 0;
-  // A 7 × 5 grid of points, keeping those inside the oval.
-  for (let alongIndex = -3; alongIndex <= 3; alongIndex++) {
-    for (let acrossIndex = -2; acrossIndex <= 2; acrossIndex++) {
-      const along = alongIndex / 3;
-      const across = acrossIndex / 2;
+  const samples: number[] = [];
+  // A 9 x 7 grid of points, keeping those inside the oval.
+  for (let alongIndex = -4; alongIndex <= 4; alongIndex++) {
+    for (let acrossIndex = -3; acrossIndex <= 3; acrossIndex++) {
+      const along = alongIndex / 4;
+      const across = acrossIndex / 3;
       if (along * along + across * across > 1.05) {
         continue;
       }
-      total += darkness.sample(
-        center.x + alongRow.x * along * halfLength + acrossRow.x * across * halfWidth,
-        center.y + alongRow.y * along * halfLength + acrossRow.y * across * halfWidth,
+      samples.push(
+        darkness.sample(
+          center.x + alongRow.x * along * halfLength + acrossRow.x * across * halfWidth,
+          center.y + alongRow.y * along * halfLength + acrossRow.y * across * halfWidth,
+        ),
       );
-      sampleCount++;
     }
   }
-  return total / sampleCount;
+  samples.sort((first, second) => first - second);
+  const lightestCount = Math.ceil(samples.length * LIGHTEST_SAMPLE_SHARE);
+  let total = 0;
+  for (let index = 0; index < lightestCount; index++) {
+    total += samples[index];
+  }
+  return total / lightestCount;
 }
 
 /**
