@@ -4,12 +4,9 @@
  * Seeing this makes misreads easy to spot.
  */
 
-import { isShooterSectionBlank } from "./archer-fields.ts";
 import type { CardReadResult, RowResult } from "../reader/analyze-card.ts";
 import { readCssVariable } from "./page-helpers.ts";
-import type { ReviewFlag } from "./score-sheet.ts";
-import { ARROW_COUNT } from "./scoring.ts";
-import type { ArrowScore } from "./scoring.ts";
+import type { Ring } from "./score-sheet.ts";
 
 /** Colour of the small dot drawn on every bubble. */
 const BUBBLE_DOT_COLOR = "rgba(127, 127, 127, 0.55)";
@@ -24,18 +21,14 @@ interface OverlayColors {
 /**
  * Draws the overlay for a reading.
  *
- * The rings follow the score sheet rather than the original reading, so an
- * arrow the coach corrects moves its ring to the corrected bubble.
- *
  * @param context Already showing the photo.
- * @param arrowScores Current scores on the sheet.
- * @param arrowFlags Current review flags on the sheet.
+ * @param rings One per reader row, worked out by the Score sheet so they follow
+ *   the sheet rather than the original reading.
  */
 export function drawReaderOverlay(
   context: CanvasRenderingContext2D,
   reading: CardReadResult,
-  arrowScores: readonly ArrowScore[],
-  arrowFlags: readonly ReviewFlag[],
+  rings: readonly Ring[],
 ): void {
   const colors: OverlayColors = {
     read: readCssVariable("--color-accent"),
@@ -63,16 +56,10 @@ export function drawReaderOverlay(
     return;
   }
 
-  // An archer who skipped the Shooter # section left nothing to misread.
-  const isShooterSkipped = isShooterSectionBlank(reading.shooter);
   const rows = [...reading.scores, ...reading.shooter];
   rows.forEach((row, rowIndex) => {
-    const isArrowRow = rowIndex < ARROW_COUNT;
-    const chosenBubble = isArrowRow ? arrowScores[rowIndex] : row.value;
-    const needsReview = isArrowRow
-      ? arrowFlags[rowIndex] !== null
-      : row.flag !== null && !isShooterSkipped;
-    drawRow(context, row, chosenBubble, needsReview, colors);
+    const ring = rings[rowIndex] ?? { chosenBubble: null, needsReview: false };
+    drawRow(context, row, ring.chosenBubble, ring.needsReview, colors);
   });
 }
 

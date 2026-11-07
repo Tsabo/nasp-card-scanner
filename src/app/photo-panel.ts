@@ -1,6 +1,7 @@
 /**
- * @file The photo panel: shows the photo, runs the reader on it, and draws
- * the reader's overlay.
+ * @file The photo panel: runs the reader on a photo, and draws the photo, the
+ * reader's overlay, the badge and the status message from the Score sheet's
+ * state. The Score sheet decides what they say.
  */
 
 import { analyzeCard } from "../reader/analyze-card.ts";
@@ -9,11 +10,7 @@ import { drawScaledCopy } from "./image-loading.ts";
 import type { DecodedImage } from "./image-loading.ts";
 import { getElement } from "./page-helpers.ts";
 import { drawReaderOverlay } from "./reader-overlay.ts";
-import type { ReviewFlag } from "./score-sheet.ts";
-import type { ArrowScore } from "./scoring.ts";
-
-/** The look of the badge in the panel's corner. */
-export type BadgeKind = "sample" | "read" | "manual" | "error";
+import type { BadgeKind, CardPhoto, SheetState } from "./score-sheet.ts";
 
 const BADGES: Record<BadgeKind, { text: string; className: string }> = {
   sample: { text: "Sample card", className: "badge is-sample" },
@@ -31,45 +28,34 @@ export class PhotoPanel {
   private readonly badgeElement = getElement("photo-source-badge", HTMLSpanElement);
   private readonly overlayCheckbox = getElement("show-overlay-checkbox", HTMLInputElement);
 
-  /** The current photo, already scaled. */
-  private photo: HTMLCanvasElement | null = null;
-  /** What the reader found in the current photo. */
-  private reading: CardReadResult | null = null;
-
   /** Registers a function to call when the overlay checkbox is changed. */
   onOverlayToggle(listener: () => void): void {
     this.overlayCheckbox.addEventListener("change", listener);
   }
 
-  /** Shows a photo and reads the card in it. */
-  async readCard(image: DecodedImage): Promise<CardReadResult> {
-    this.setStatus("Reading the card…");
-    // Let the browser paint the status message before the reader takes over
-    // the main thread for a moment.
+  /** Scales a photo and reads the card in it. */
+  async readCard(image: DecodedImage): Promise<CardPhoto<HTMLCanvasElement>> {
+    // Let the browser paint the "Reading the card…" status before the reader
+    // takes over the main thread for a moment.
     await new Promise((resolve) => setTimeout(resolve, 20));
-
     const photo = drawScaledCopy(image);
-    this.photo = photo;
-    this.reading = runReader(photo);
-    return this.reading;
+    return { image: photo, reading: runReader(photo) };
   }
 
-  /** Removes the reader's results, for entering scores by hand. Keeps the photo. */
-  clearReading(): void {
-    this.reading = null;
-  }
+  /** Redraws the badge, the status message, the photo and, if enabled, the reader's overlay. */
+  render(state: SheetState<HTMLCanvasElement>): void {
+    const { status } = state;
+    this.badgeElement.textContent = BADGES[status.badge].text;
+    this.badgeElement.className = BADGES[status.badge].className;
+    this.statusElement.textContent = status.text;
+    this.statusElement.classList.toggle("is-problem", status.isProblem);
 
-  /**
-   * Redraws the photo and, if enabled, the reader's overlay.
-   *
-   * @param arrowScores Current scores on the sheet.
-   * @param arrowFlags Current review flags on the sheet.
-   */
-  draw(arrowScores: readonly ArrowScore[], arrowFlags: readonly ReviewFlag[]): void {
-    const { canvas, photo } = this;
-    if (!photo) {
+    const { canvas } = this;
+    canvas.hidden = state.photo === null;
+    if (!state.photo) {
       return;
     }
+    const { image: photo, reading, rings } = state.photo;
     if (canvas.width !== photo.width || canvas.height !== photo.height) {
       canvas.width = photo.width;
       canvas.height = photo.height;
@@ -79,25 +65,9 @@ export class PhotoPanel {
       return;
     }
     context.drawImage(photo, 0, 0);
-    if (this.reading && this.overlayCheckbox.checked) {
-      drawReaderOverlay(context, this.reading, arrowScores, arrowFlags);
+    if (this.overlayCheckbox.checked) {
+      drawReaderOverlay(context, reading, rings);
     }
-  }
-
-  /**
-   * Shows a message under the photo.
-   *
-   * @param isProblem Problems are shown in the warning colour.
-   */
-  setStatus(message: string, { isProblem = false }: { isProblem?: boolean } = {}): void {
-    this.statusElement.textContent = message;
-    this.statusElement.classList.toggle("is-problem", isProblem);
-  }
-
-  /** Sets the badge in the panel's corner. */
-  setBadge(kind: BadgeKind): void {
-    this.badgeElement.textContent = BADGES[kind].text;
-    this.badgeElement.className = BADGES[kind].className;
   }
 }
 
