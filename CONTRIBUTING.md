@@ -77,10 +77,11 @@ css/styles.css             All styles; colours are variables at the top, with a 
 src/
   app/                     The page's behaviour
     main.ts                Starts the app and connects buttons to the parts below
-    photo-panel.ts         Shows the photo and runs the reader
+    photo-panel.ts         Runs the reader, and shows the photo and its status
     reader-overlay.ts      Draws what the reader saw over the photo
     image-loading.ts       Opens and scales photo files
-    score-sheet.ts         The editable arrows, totals and review list
+    score-sheet.ts         The scorecard being worked on, and every step that changes it (no page code)
+    score-sheet-view.ts    Draws the score sheet and reports edits to it
     archer-fields.ts       How the archer and Shooter # fill each other in (pure functions)
     scoring.ts             NASP scoring rules (pure functions)
     scorecard.ts           The saved-scorecard record, and what makes one valid
@@ -91,6 +92,7 @@ src/
     xlsx.ts                Writes the Excel workbook (no outside libraries)
     dates.ts               Today's date in local time
     page-helpers.ts        Small helpers for finding and creating elements
+    text.ts                Helpers for wording messages
   reader/                  The bubble reader (no page code; also runs in Node for tests)
     analyze-card.ts        Entry point: runs the steps below in order
     card-layout.ts         The card's measured geometry

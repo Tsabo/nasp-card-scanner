@@ -88,13 +88,3 @@ export function downloadFile(
 export function readCssVariable(propertyName: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(propertyName).trim();
 }
-
-/**
- * Formats a count with the right singular or plural word, such as
- * "1 scorecard" or "3 scorecards".
- *
- * @param plural Defaults to the singular plus "s".
- */
-export function formatCount(count: number, singular: string, plural = `${singular}s`): string {
-  return `${count} ${count === 1 ? singular : plural}`;
-}

@@ -2,13 +2,13 @@
  * @file Starts the app and connects the page's buttons to the parts that do
  * the work:
  *
- * - {@link PhotoPanel}: shows the photo and runs the reader.
- * - {@link ScoreSheet}: the editable scores and totals.
+ * - {@link ScoreSheet}: the scorecard being worked on, drawn by
+ *   {@link ScoreSheetView} and {@link PhotoPanel}.
+ * - {@link PhotoPanel}: runs the reader and shows the photo.
  * - {@link LogStore}: saved scorecards, kept in this browser.
  * - {@link renderLog}: the table of saved scorecards, one format at a time.
  */
 
-import type { CardReadResult } from "../reader/analyze-card.ts";
 import {
   createCsv,
   createExportTable,
@@ -20,14 +20,13 @@ import type { CsvImport } from "./csv.ts";
 import { getTodayAsIsoDate } from "./dates.ts";
 import { decodeImageFile, isImageFile, loadImageFromUrl } from "./image-loading.ts";
 import type { DecodedImage } from "./image-loading.ts";
-import { downloadFile, formatCount, getElement, showToast } from "./page-helpers.ts";
+import { downloadFile, getElement, showToast } from "./page-helpers.ts";
 import { PhotoPanel } from "./photo-panel.ts";
 import { LogStore, StorageUnavailableError } from "./log-store.ts";
 import type { AddManyResult } from "./log-store.ts";
-import { ArcherDirectory, readShooterNumber } from "./archer-fields.ts";
 import { connectLogTabs, renderLog } from "./log-table.ts";
-import { findSaveProblem, sortNewestFirst } from "./scorecard.ts";
-import type { SaveProblem } from "./scorecard.ts";
+import { sortNewestFirst } from "./scorecard.ts";
+import type { NewScorecard } from "./scorecard.ts";
 import {
   FORMAT_LABELS,
   SCORECARD_FORMATS,
@@ -36,41 +35,27 @@ import {
 } from "./scorecard-format.ts";
 import type { ScorecardFormat } from "./scorecard-format.ts";
 import { ScoreSheet } from "./score-sheet.ts";
+import { ScoreSheetView } from "./score-sheet-view.ts";
 import { summarizeScorecard } from "./scoring.ts";
+import { formatCount } from "./text.ts";
 import { createXlsx } from "./xlsx.ts";
 
 /** The simulated card shown when the page first opens. */
 const SAMPLE_CARD_URL = "assets/sample-card.jpg";
 
 const MESSAGES = {
-  sampleRead:
-    "This is a sample card with one double-marked arrow. Take a photo of one of yours to start.",
-  noSample: "Take a photo of a score card to start.",
-  notAnImage: "That file isn't an image. Choose a photo of the score card.",
-  cannotOpenImage: "This browser couldn't open that image. Try a JPEG or PNG.",
-  retakeAdvice:
-    "Retake it with the whole card in frame, flat and evenly lit, or enter the scores by hand.",
-  enterByHand: "Enter each arrow on the score sheet.",
-  needsArcher: "Add the archer's name or shooter number first.",
-  partialShooterNumber:
-    "Enter all five digits of the Shooter #, including any leading zeros, like 00123, or clear it.",
-  needsSide: "Choose the side this archer shot from.",
-  needsFirstAnimal: "Choose the first animal this archer shot.",
-  noScores: "There are no scores to save yet.",
-  cannotSave:
-    "This browser wouldn't save the scorecard. Its storage may be full or blocked in private browsing.",
   storageBlocked:
     "This browser isn't letting the page save (private browsing?). Export before you close it.",
   copyBlocked:
     "Copying isn't allowed here. Select this text and copy it, then paste it into your spreadsheet.",
 } as const;
 
-const photoPanel = new PhotoPanel();
-const scoreSheet = new ScoreSheet();
-const log = new LogStore();
-
 /** The format whose tab is showing in the log. */
 let logFormat: ScorecardFormat = loadRememberedFormat();
+
+const photoPanel = new PhotoPanel();
+const scoreSheet = new ScoreSheet<HTMLCanvasElement>({ format: logFormat });
+const log = new LogStore();
 
 startApp();
 
@@ -91,17 +76,11 @@ function startApp(): void {
   onFileChosen("import-csv-input", importCsv);
   connectLogTabs(showLogFormat);
 
-  scoreSheet.setFormat(logFormat);
+  new ScoreSheetView(scoreSheet);
   scoreSheet.onFormatChange(rememberFormat);
-  // Choosing a side or an animal answers the message asking for one, and
-  // changing the archer or Shooter # answers the messages about those.
-  getElement("side-select", HTMLSelectElement).addEventListener("change", clearSaveMessage);
-  getElement("first-animal-select", HTMLSelectElement).addEventListener("change", clearSaveMessage);
-  getElement("archer-input", HTMLInputElement).addEventListener("input", clearSaveMessage);
-  getElement("shooter-number-input", HTMLInputElement).addEventListener("input", clearSaveMessage);
-
-  // Keep the overlay in step with the sheet and the light or dark theme.
-  scoreSheet.onChange(redrawPhoto);
+  // Keep the photo panel in step with the sheet and the light or dark theme.
+  scoreSheet.subscribe((state) => photoPanel.render(state));
+  redrawPhoto();
   photoPanel.onOverlayToggle(redrawPhoto);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redrawPhoto);
 
@@ -161,92 +140,34 @@ function connectPhotoInputs(): void {
 /** Opens a photo the coach chose and reads the card in it. */
 async function readPhotoFile(file: File): Promise<void> {
   if (!isImageFile(file)) {
-    photoPanel.setStatus(MESSAGES.notAnImage, { isProblem: true });
+    scoreSheet.showPhotoProblem("not-an-image");
     return;
   }
   let image: DecodedImage;
   try {
     image = await decodeImageFile(file);
   } catch {
-    photoPanel.setStatus(MESSAGES.cannotOpenImage, { isProblem: true });
+    scoreSheet.showPhotoProblem("cannot-open");
     return;
   }
-
-  const reading = await photoPanel.readCard(image);
-  // A new card is usually a new archer.
-  scoreSheet.clearArcher();
-  scoreSheet.clearSideAndFirstAnimal();
-  showReading(reading, { isSample: false });
+  await scoreSheet.readPhoto(photoPanel.readCard(image));
 }
 
 /** Loads and reads the built-in sample card. */
 async function showSampleCard(): Promise<void> {
-  try {
-    const image = await loadImageFromUrl(SAMPLE_CARD_URL);
-    const reading = await photoPanel.readCard(image);
-    showReading(reading, { isSample: true });
-  } catch {
-    photoPanel.setStatus(MESSAGES.noSample);
-  }
-}
-
-/** Puts what the reader found onto the score sheet and explains it. */
-function showReading(reading: CardReadResult, { isSample }: { isSample: boolean }): void {
-  clearSaveMessage();
-
-  if (!reading.ok) {
-    scoreSheet.clear();
-    photoPanel.setBadge("error");
-    photoPanel.setStatus(`${reading.error} ${MESSAGES.retakeAdvice}`, { isProblem: true });
-    redrawPhoto();
-    return;
-  }
-
-  const { shooterNumber, needsReview: shooterNumberNeedsReview } = readShooterNumber(
-    reading.shooter,
+  await scoreSheet.readSample(
+    loadImageFromUrl(SAMPLE_CARD_URL).then((image) => photoPanel.readCard(image)),
   );
-  scoreSheet.showReading({
-    arrowScores: reading.scores.map((arrow) => arrow.value),
-    arrowFlags: reading.scores.map((arrow) => arrow.flag),
-    shooterNumber,
-    shooterNumberNeedsReview,
-  });
-
-  if (isSample) {
-    photoPanel.setBadge("sample");
-    photoPanel.setStatus(MESSAGES.sampleRead);
-  } else {
-    photoPanel.setBadge("read");
-    photoPanel.setStatus(describeReadResult(scoreSheet.getReviewCount()));
-  }
-  redrawPhoto();
-}
-
-/** Builds the status message after a successful read. */
-function describeReadResult(spotsToCheck: number): string {
-  if (spotsToCheck === 0) {
-    return "Read all 30 arrows. Check the sheet against the card, then save.";
-  }
-  const spots = spotsToCheck === 1 ? "One spot needs" : `${spotsToCheck} spots need`;
-  return `Read all 30 arrows. ${spots} a look before you save.`;
 }
 
 /** Clears the sheet so every arrow can be typed in. */
 function enterScoresByHand(): void {
-  photoPanel.clearReading();
-  photoPanel.setBadge("manual");
-  photoPanel.setStatus(MESSAGES.enterByHand);
-  scoreSheet.clearArcher();
-  scoreSheet.clear();
-  scoreSheet.clearSideAndFirstAnimal();
-  clearSaveMessage();
-  redrawPhoto();
-  scoreSheet.focusFirstArrow();
+  scoreSheet.enterByHand();
 }
 
-/** Redraws the photo and overlay to match the score sheet. */
+/** Redraws the photo and overlay, for a change of theme or of the overlay checkbox. */
 function redrawPhoto(): void {
-  photoPanel.draw(scoreSheet.getArrowScores(), scoreSheet.getArrowFlags());
+  photoPanel.render(scoreSheet.getState());
 }
 
 // ---------------------------------------------------------------------------
@@ -255,59 +176,30 @@ function redrawPhoto(): void {
 
 /** Saves the score sheet as a new scorecard in the log. */
 function saveScorecard(): void {
-  const details = scoreSheet.getScorecardDetails();
-  const arrowScores = scoreSheet.getArrowScores();
-  const blankCount = arrowScores.filter((score) => score === null).length;
-
-  const problem = findSaveProblem({ ...details, arrowScores });
-  if (problem !== null) {
-    showSaveProblem(problem);
+  const saved = scoreSheet.save(addToLog);
+  if (saved === null) {
     return;
   }
-
-  try {
-    log.add({ ...details, arrowScores, createdAt: Date.now() });
-  } catch (error) {
-    if (error instanceof StorageUnavailableError) {
-      setSaveMessage(MESSAGES.cannotSave, { isProblem: true });
-      return;
-    }
-    throw error;
-  }
-
   // Show the tab the new scorecard is on.
-  showLogFormat(details.format);
-  const who = details.archer || `#${details.shooterNumber}`;
-  showToast(`Saved ${who}: ${summarizeScorecard(arrowScores).total}`);
-  setSaveMessage(
-    blankCount === 0
-      ? "Saved. Scan the next card when you're ready."
-      : `Saved with ${formatCount(blankCount, "blank arrow")} counted as 0.`,
-  );
+  showLogFormat(saved.format);
+  const who = saved.archer || `#${saved.shooterNumber}`;
+  showToast(`Saved ${who}: ${summarizeScorecard(saved.arrowScores).total}`);
 }
 
-/** Explains why the score sheet can't be saved, and moves to the field to fix. */
-function showSaveProblem(problem: SaveProblem): void {
-  switch (problem) {
-    case "no-archer":
-      setSaveMessage(MESSAGES.needsArcher, { isProblem: true });
-      scoreSheet.focusArcher();
-      return;
-    case "partial-shooter-number":
-      setSaveMessage(MESSAGES.partialShooterNumber, { isProblem: true });
-      scoreSheet.showShooterNumberProblem();
-      return;
-    case "no-side":
-      setSaveMessage(MESSAGES.needsSide, { isProblem: true });
-      scoreSheet.focusSide();
-      return;
-    case "no-first-animal":
-      setSaveMessage(MESSAGES.needsFirstAnimal, { isProblem: true });
-      scoreSheet.focusFirstAnimal();
-      return;
-    case "no-scores":
-      setSaveMessage(MESSAGES.noScores, { isProblem: true });
-      return;
+/**
+ * Adds a scorecard to the log.
+ *
+ * @returns False when the browser wouldn't save it.
+ */
+function addToLog(scorecard: NewScorecard): boolean {
+  try {
+    log.add(scorecard);
+    return true;
+  } catch (error) {
+    if (error instanceof StorageUnavailableError) {
+      return false;
+    }
+    throw error;
   }
 }
 
@@ -339,25 +231,11 @@ function getVisibleExportTable(): ReturnType<typeof createExportTable> {
 function refreshLog(): void {
   const scorecards = log.getAll();
   renderLog(scorecards, logFormat, deleteScorecard);
-  scoreSheet.setArcherDirectory(new ArcherDirectory(scorecards));
+  scoreSheet.setLog(scorecards);
   const isTabEmpty = getVisibleExportTable().rows.length === 0;
   getElement("download-excel-button", HTMLButtonElement).disabled = scorecards.length === 0;
   getElement("download-csv-button", HTMLButtonElement).disabled = isTabEmpty;
   getElement("copy-for-spreadsheet-button", HTMLButtonElement).disabled = isTabEmpty;
-}
-
-/** Shows a message beside the Save button. */
-function setSaveMessage(
-  message: string,
-  { isProblem = false }: { isProblem?: boolean } = {},
-): void {
-  const element = getElement("save-message", HTMLSpanElement);
-  element.textContent = message;
-  element.classList.toggle("is-problem", isProblem);
-}
-
-function clearSaveMessage(): void {
-  setSaveMessage("");
 }
 
 // ---------------------------------------------------------------------------
