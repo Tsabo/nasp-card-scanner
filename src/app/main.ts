@@ -24,6 +24,7 @@ import { downloadFile, formatCount, getElement, showToast } from "./page-helpers
 import { PhotoPanel } from "./photo-panel.ts";
 import { LogStore, StorageUnavailableError } from "./log-store.ts";
 import type { AddManyResult } from "./log-store.ts";
+import { ArcherDirectory, isPartialShooterNumber, readShooterNumber } from "./archer-fields.ts";
 import { connectLogTabs, getArcherNames, renderLog } from "./log-table.ts";
 import { sortNewestFirst } from "./scorecard.ts";
 import {
@@ -50,6 +51,8 @@ const MESSAGES = {
     "Retake it with the whole card in frame, flat and evenly lit, or enter the scores by hand.",
   enterByHand: "Enter each arrow on the score sheet.",
   needsArcher: "Add the archer's name or shooter number first.",
+  partialShooterNumber:
+    "Enter all five digits of the Shooter #, including any leading zeros, like 00123, or clear it.",
   needsSide: "Choose the side this archer shot from.",
   needsFirstAnimal: "Choose the first animal this archer shot.",
   noScores: "There are no scores to save yet.",
@@ -89,9 +92,12 @@ function startApp(): void {
 
   scoreSheet.setFormat(logFormat);
   scoreSheet.onFormatChange(rememberFormat);
-  // Choosing a side or an animal answers the message asking for one.
+  // Choosing a side or an animal answers the message asking for one, and
+  // changing the archer or Shooter # answers the messages about those.
   getElement("side-select", HTMLSelectElement).addEventListener("change", clearSaveMessage);
   getElement("first-animal-select", HTMLSelectElement).addEventListener("change", clearSaveMessage);
+  getElement("archer-input", HTMLInputElement).addEventListener("input", clearSaveMessage);
+  getElement("shooter-number-input", HTMLInputElement).addEventListener("input", clearSaveMessage);
 
   // Keep the overlay in step with the sheet and the light or dark theme.
   scoreSheet.onChange(redrawPhoto);
@@ -195,14 +201,13 @@ function showReading(reading: CardReadResult, { isSample }: { isSample: boolean 
     return;
   }
 
-  const shooterDigits = reading.shooter.map((digit) =>
-    digit.value === null ? "" : String(digit.value),
+  const { shooterNumber, needsReview: shooterNumberNeedsReview } = readShooterNumber(
+    reading.shooter,
   );
-  const shooterNumberNeedsReview = reading.shooter.some((digit) => digit.flag !== null);
   scoreSheet.showReading({
     arrowScores: reading.scores.map((arrow) => arrow.value),
     arrowFlags: reading.scores.map((arrow) => arrow.flag),
-    shooterNumber: shooterDigits.join(""),
+    shooterNumber,
     shooterNumberNeedsReview,
   });
 
@@ -210,10 +215,8 @@ function showReading(reading: CardReadResult, { isSample }: { isSample: boolean 
     photoPanel.setBadge("sample");
     photoPanel.setStatus(MESSAGES.sampleRead);
   } else {
-    const flaggedArrows = reading.scores.filter((arrow) => arrow.flag !== null).length;
-    const spotsToCheck = flaggedArrows + (shooterNumberNeedsReview ? 1 : 0);
     photoPanel.setBadge("read");
-    photoPanel.setStatus(describeReadResult(spotsToCheck));
+    photoPanel.setStatus(describeReadResult(scoreSheet.getReviewCount()));
   }
   redrawPhoto();
 }
@@ -232,6 +235,7 @@ function enterScoresByHand(): void {
   photoPanel.clearReading();
   photoPanel.setBadge("manual");
   photoPanel.setStatus(MESSAGES.enterByHand);
+  scoreSheet.clearArcher();
   scoreSheet.clear();
   scoreSheet.clearSideAndFirstAnimal();
   clearSaveMessage();
@@ -257,6 +261,11 @@ function saveScorecard(): void {
   if (!details.archer && !details.shooterNumber) {
     setSaveMessage(MESSAGES.needsArcher, { isProblem: true });
     scoreSheet.focusArcher();
+    return;
+  }
+  if (isPartialShooterNumber(details.shooterNumber)) {
+    setSaveMessage(MESSAGES.partialShooterNumber, { isProblem: true });
+    scoreSheet.showShooterNumberProblem();
     return;
   }
   if (details.format === "3d" && details.side === null) {
@@ -324,6 +333,7 @@ function refreshLog(): void {
   const scorecards = log.getAll();
   renderLog(scorecards, logFormat, deleteScorecard);
   scoreSheet.setArcherSuggestions(getArcherNames(scorecards));
+  scoreSheet.setArcherDirectory(new ArcherDirectory(scorecards));
   const isTabEmpty = getVisibleExportTable().rows.length === 0;
   getElement("download-excel-button", HTMLButtonElement).disabled = scorecards.length === 0;
   getElement("download-csv-button", HTMLButtonElement).disabled = isTabEmpty;

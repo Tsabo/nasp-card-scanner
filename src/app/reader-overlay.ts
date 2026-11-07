@@ -4,6 +4,7 @@
  * Seeing this makes misreads easy to spot.
  */
 
+import { isShooterSectionBlank } from "./archer-fields.ts";
 import type { CardReadResult, RowResult } from "../reader/analyze-card.ts";
 import { readCssVariable } from "./page-helpers.ts";
 import type { ReviewFlag } from "./score-sheet.ts";
@@ -62,11 +63,15 @@ export function drawReaderOverlay(
     return;
   }
 
+  // An archer who skipped the Shooter # section left nothing to misread.
+  const isShooterSkipped = isShooterSectionBlank(reading.shooter);
   const rows = [...reading.scores, ...reading.shooter];
   rows.forEach((row, rowIndex) => {
     const isArrowRow = rowIndex < ARROW_COUNT;
     const chosenBubble = isArrowRow ? arrowScores[rowIndex] : row.value;
-    const needsReview = isArrowRow ? arrowFlags[rowIndex] !== null : row.flag !== null;
+    const needsReview = isArrowRow
+      ? arrowFlags[rowIndex] !== null
+      : row.flag !== null && !isShooterSkipped;
     drawRow(context, row, chosenBubble, needsReview, colors);
   });
 }

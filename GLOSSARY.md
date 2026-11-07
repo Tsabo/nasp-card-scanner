@@ -4,6 +4,9 @@ Reads NASP practice score cards from a photo and keeps a log of them for export 
 
 ## Language
 
+**Archer**:
+A person who shot a scorecard, known by a name, a Shooter #, or both. Every scorecard needs at least one of the two. The log is the only record of archers, so an archer whose scorecards are all deleted is forgotten.
+
 **Arrow**:
 One shot, scored 0 to 10, or left blank.
 
@@ -34,5 +37,5 @@ The scorecards saved in this browser, viewed and exported one format at a time.
 _Avoid_: Practice log
 
 **Shooter #**:
-The five-digit number that identifies an archer on the card.
+The five-digit number that identifies an archer on the card, including any leading zeros (00123, not 123). A new scorecard has all five digits or none.
 _Avoid_: Shooter number, archer ID

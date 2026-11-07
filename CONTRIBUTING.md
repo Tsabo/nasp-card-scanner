@@ -81,6 +81,7 @@ src/
     reader-overlay.ts      Draws what the reader saw over the photo
     image-loading.ts       Opens and scales photo files
     score-sheet.ts         The editable arrows, totals and review list
+    archer-fields.ts       How the archer and Shooter # fill each other in (pure functions)
     scoring.ts             NASP scoring rules (pure functions)
     scorecard.ts           The saved-scorecard record
     scorecard-format.ts    Bullseye and 3D, and the rotation of animals

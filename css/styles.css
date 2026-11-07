@@ -372,6 +372,7 @@ h2 {
 
 .form-field {
   display: grid;
+  align-content: start;
   gap: 4px;
   font-size: 0.78rem;
   font-weight: 600;
@@ -393,6 +394,26 @@ h2 {
 .form-field input.needs-review {
   border-color: var(--color-review);
   background: var(--color-review-soft);
+}
+
+/* The hint and problem share one grid cell, so swapping them doesn't move the
+   Save button out from under a tap. */
+.field-help {
+  display: grid;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.field-help > * {
+  grid-area: 1 / 1;
+}
+
+.field-help > .is-hidden {
+  visibility: hidden;
+}
+
+.field-problem {
+  color: var(--color-review);
 }
 
 /* The side and first animal only apply to 3D. The animal gets its own line, for
