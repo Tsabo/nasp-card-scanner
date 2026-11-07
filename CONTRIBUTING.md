@@ -27,14 +27,14 @@ In VS Code, install the **Prettier** extension and turn on format-on-save. Type 
 
 ## Conventions
 
-| Thing                            | Style                    | Example                                |
-| -------------------------------- | ------------------------ | -------------------------------------- |
-| Files                            | kebab-case               | `practice-log-store.ts`                |
-| Classes, interfaces, types       | PascalCase               | `PracticeLogStore`, `ScorecardSummary` |
-| Functions, variables, properties | camelCase                | `summarizeScorecard`, `arrowScores`    |
-| Module-level constants           | UPPER_SNAKE_CASE         | `ARROW_COUNT`                          |
-| CSS classes and element ids      | kebab-case               | `.round-total`, `#archer-input`        |
-| State classes in CSS             | `is-` or `needs-` prefix | `.is-ten`, `.needs-review`             |
+| Thing                            | Style                    | Example                             |
+| -------------------------------- | ------------------------ | ----------------------------------- |
+| Files                            | kebab-case               | `log-store.ts`                      |
+| Classes, interfaces, types       | PascalCase               | `LogStore`, `ScorecardSummary`      |
+| Functions, variables, properties | camelCase                | `summarizeScorecard`, `arrowScores` |
+| Module-level constants           | UPPER_SNAKE_CASE         | `ARROW_COUNT`                       |
+| CSS classes and element ids      | kebab-case               | `.round-total`, `#archer-input`     |
+| State classes in CSS             | `is-` or `needs-` prefix | `.is-ten`, `.needs-review`          |
 
 Some other habits:
 
@@ -82,10 +82,12 @@ src/
     image-loading.ts       Opens and scales photo files
     score-sheet.ts         The editable arrows, totals and review list
     scoring.ts             NASP scoring rules (pure functions)
-    practice-round.ts      The saved-round record
-    practice-log-store.ts  Saves rounds in the browser's local storage
-    practice-log-view.ts   The table of saved rounds
-    csv.ts                 CSV export and import, and spreadsheet copy
+    scorecard.ts           The saved-scorecard record
+    scorecard-format.ts    Bullseye and 3D, and the rotation of animals
+    log-store.ts           Saves scorecards in the browser's local storage
+    log-table.ts           The format tabs and table of saved scorecards
+    csv.ts                 Export tables, CSV export and import, and spreadsheet copy
+    xlsx.ts                Writes the Excel workbook (no outside libraries)
     dates.ts               Today's date in local time
     page-helpers.ts        Small helpers for finding and creating elements
   reader/                  The bubble reader (no page code; also runs in Node for tests)
