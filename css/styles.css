@@ -2,7 +2,7 @@
  * NASP Card Scanner styles.
  *
  * Layout: a "scanner bench". The photo sits on the left with the reader's
- * overlay, the score sheet on the right, and the practice log full width
+ * overlay, the score sheet on the right, and the log full width
  * underneath. On narrow screens everything stacks into one column.
  *
  * Colours are defined once as custom properties (variables) below, with a
@@ -378,7 +378,8 @@ h2 {
   color: var(--color-text-muted);
 }
 
-.form-field input {
+.form-field input,
+.form-field select {
   width: 100%;
   min-width: 0;
   padding: 9px 10px;
@@ -392,6 +393,32 @@ h2 {
 .form-field input.needs-review {
   border-color: var(--color-review);
   background: var(--color-review-soft);
+}
+
+/* The side and first animal only apply to 3D. The animal gets its own line, for
+   the longest names. */
+.side-field,
+.first-animal-field {
+  display: none;
+}
+
+.side-field {
+  grid-column: 2 / -1;
+}
+
+.first-animal-field {
+  grid-column: 1 / -1;
+}
+
+.is-three-d .side-field,
+.is-three-d .first-animal-field {
+  display: grid;
+}
+
+/* 3D distances depend on the animal, so the 10 and 15 meter groups don't apply. */
+.is-three-d .distance-heading,
+.is-three-d .distance-stat {
+  display: none;
 }
 
 .score-summary {
@@ -470,6 +497,15 @@ h2 {
   grid-template-columns: 70px repeat(5, minmax(34px, 46px)) minmax(44px, 1fr);
   align-items: center;
   gap: 6px;
+}
+
+/* Animal names are too long to sit beside the arrows, so they get their own line. */
+.is-three-d .round-row {
+  grid-template-columns: repeat(5, minmax(34px, 46px)) minmax(44px, 1fr);
+}
+
+.is-three-d .round-label {
+  grid-column: 1 / -1;
 }
 
 .round-label {
@@ -578,9 +614,32 @@ h2 {
   color: var(--color-review);
 }
 
-/* ---------- Practice log ---------- */
+/* ---------- Log ---------- */
 
-.practice-log-header {
+.log-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.log-tab {
+  margin-bottom: -1px;
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--color-text-muted);
+  font: 600 0.95rem var(--font-body);
+  cursor: pointer;
+}
+
+.log-tab[aria-selected="true"] {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+.log-header {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
@@ -589,7 +648,7 @@ h2 {
   margin-bottom: 12px;
 }
 
-.practice-log-header p {
+.log-header p {
   margin: 2px 0 0;
   font-size: 0.86rem;
   color: var(--color-text-muted);

@@ -4,13 +4,14 @@
  *
  * - {@link PhotoPanel}: shows the photo and runs the reader.
  * - {@link ScoreSheet}: the editable scores and totals.
- * - {@link PracticeLogStore}: saved scorecards, kept in this browser.
- * - {@link renderPracticeLog}: the table of saved scorecards.
+ * - {@link LogStore}: saved scorecards, kept in this browser.
+ * - {@link renderLog}: the table of saved scorecards, one format at a time.
  */
 
 import type { CardReadResult } from "../reader/analyze-card.ts";
 import {
   createCsv,
+  createExportTable,
   createTabSeparatedText,
   readScorecardsFromCsv,
   UnrecognizedCsvError,
@@ -19,14 +20,22 @@ import type { CsvImport } from "./csv.ts";
 import { getTodayAsIsoDate } from "./dates.ts";
 import { decodeImageFile, isImageFile, loadImageFromUrl } from "./image-loading.ts";
 import type { DecodedImage } from "./image-loading.ts";
-import { downloadTextFile, formatCount, getElement, showToast } from "./page-helpers.ts";
+import { downloadFile, formatCount, getElement, showToast } from "./page-helpers.ts";
 import { PhotoPanel } from "./photo-panel.ts";
-import { PracticeLogStore, StorageUnavailableError } from "./practice-log-store.ts";
-import type { AddManyResult } from "./practice-log-store.ts";
-import { getArcherNames, renderPracticeLog } from "./practice-log-view.ts";
+import { LogStore, StorageUnavailableError } from "./log-store.ts";
+import type { AddManyResult } from "./log-store.ts";
+import { connectLogTabs, getArcherNames, renderLog } from "./log-table.ts";
 import { sortNewestFirst } from "./scorecard.ts";
+import {
+  FORMAT_LABELS,
+  SCORECARD_FORMATS,
+  loadRememberedFormat,
+  rememberFormat,
+} from "./scorecard-format.ts";
+import type { ScorecardFormat } from "./scorecard-format.ts";
 import { ScoreSheet } from "./score-sheet.ts";
 import { ARROW_COUNT, summarizeScorecard } from "./scoring.ts";
+import { createXlsx } from "./xlsx.ts";
 
 /** The simulated card shown when the page first opens. */
 const SAMPLE_CARD_URL = "assets/sample-card.jpg";
@@ -41,6 +50,8 @@ const MESSAGES = {
     "Retake it with the whole card in frame, flat and evenly lit, or enter the scores by hand.",
   enterByHand: "Enter each arrow on the score sheet.",
   needsArcher: "Add the archer's name or shooter number first.",
+  needsSide: "Choose the side this archer shot from.",
+  needsFirstAnimal: "Choose the first animal this archer shot.",
   noScores: "There are no scores to save yet.",
   cannotSave:
     "This browser wouldn't save the scorecard. Its storage may be full or blocked in private browsing.",
@@ -52,7 +63,10 @@ const MESSAGES = {
 
 const photoPanel = new PhotoPanel();
 const scoreSheet = new ScoreSheet();
-const practiceLog = new PracticeLogStore();
+const log = new LogStore();
+
+/** The format whose tab is showing in the log. */
+let logFormat: ScorecardFormat = loadRememberedFormat();
 
 startApp();
 
@@ -64,23 +78,31 @@ function startApp(): void {
     enterScoresByHand,
   );
   getElement("save-scorecard-button", HTMLButtonElement).addEventListener("click", saveScorecard);
+  getElement("download-excel-button", HTMLButtonElement).addEventListener("click", downloadExcel);
   getElement("download-csv-button", HTMLButtonElement).addEventListener("click", downloadCsv);
   getElement("copy-for-spreadsheet-button", HTMLButtonElement).addEventListener(
     "click",
     copyForSpreadsheet,
   );
   onFileChosen("import-csv-input", importCsv);
+  connectLogTabs(showLogFormat);
+
+  scoreSheet.setFormat(logFormat);
+  scoreSheet.onFormatChange(rememberFormat);
+  // Choosing a side or an animal answers the message asking for one.
+  getElement("side-select", HTMLSelectElement).addEventListener("change", clearSaveMessage);
+  getElement("first-animal-select", HTMLSelectElement).addEventListener("change", clearSaveMessage);
 
   // Keep the overlay in step with the sheet and the light or dark theme.
   scoreSheet.onChange(redrawPhoto);
   photoPanel.onOverlayToggle(redrawPhoto);
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redrawPhoto);
 
-  if (!practiceLog.canSave()) {
-    getElement("practice-log-message", HTMLParagraphElement).textContent = MESSAGES.storageBlocked;
+  if (!log.canSave()) {
+    getElement("log-message", HTMLParagraphElement).textContent = MESSAGES.storageBlocked;
   }
-  PracticeLogStore.requestPersistentStorage();
-  refreshPracticeLog();
+  LogStore.requestPersistentStorage();
+  refreshLog();
 
   void showSampleCard();
   registerOfflineSupport();
@@ -146,6 +168,7 @@ async function readPhotoFile(file: File): Promise<void> {
   const reading = await photoPanel.readCard(image);
   // A new card is usually a new archer.
   scoreSheet.clearArcher();
+  scoreSheet.clearSideAndFirstAnimal();
   showReading(reading, { isSample: false });
 }
 
@@ -210,6 +233,7 @@ function enterScoresByHand(): void {
   photoPanel.setBadge("manual");
   photoPanel.setStatus(MESSAGES.enterByHand);
   scoreSheet.clear();
+  scoreSheet.clearSideAndFirstAnimal();
   clearSaveMessage();
   redrawPhoto();
   scoreSheet.focusFirstArrow();
@@ -221,10 +245,10 @@ function redrawPhoto(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Saving and the practice log
+// Saving and the log
 // ---------------------------------------------------------------------------
 
-/** Saves the score sheet as a new scorecard in the practice log. */
+/** Saves the score sheet as a new scorecard in the log. */
 function saveScorecard(): void {
   const details = scoreSheet.getScorecardDetails();
   const arrowScores = scoreSheet.getArrowScores();
@@ -235,13 +259,23 @@ function saveScorecard(): void {
     scoreSheet.focusArcher();
     return;
   }
+  if (details.format === "3d" && details.side === null) {
+    setSaveMessage(MESSAGES.needsSide, { isProblem: true });
+    scoreSheet.focusSide();
+    return;
+  }
+  if (details.format === "3d" && details.firstAnimal === null) {
+    setSaveMessage(MESSAGES.needsFirstAnimal, { isProblem: true });
+    scoreSheet.focusFirstAnimal();
+    return;
+  }
   if (blankCount === ARROW_COUNT) {
     setSaveMessage(MESSAGES.noScores, { isProblem: true });
     return;
   }
 
   try {
-    practiceLog.add({ ...details, arrowScores, createdAt: Date.now() });
+    log.add({ ...details, arrowScores, createdAt: Date.now() });
   } catch (error) {
     if (error instanceof StorageUnavailableError) {
       setSaveMessage(MESSAGES.cannotSave, { isProblem: true });
@@ -250,7 +284,8 @@ function saveScorecard(): void {
     throw error;
   }
 
-  refreshPracticeLog();
+  // Show the tab the new scorecard is on.
+  showLogFormat(details.format);
   const who = details.archer || `#${details.shooterNumber}`;
   showToast(`Saved ${who}: ${summarizeScorecard(arrowScores).total}`);
   setSaveMessage(
@@ -260,25 +295,39 @@ function saveScorecard(): void {
   );
 }
 
-/** Deletes a scorecard from the practice log. */
+/** Deletes a scorecard from the log. */
 function deleteScorecard(scorecardId: string): void {
   try {
-    practiceLog.remove(scorecardId);
+    log.remove(scorecardId);
     showToast("Scorecard deleted");
   } catch {
     showToast("Couldn't delete that scorecard. Try again.");
   }
-  refreshPracticeLog();
+  refreshLog();
+}
+
+/** Shows one format's tab in the log. */
+function showLogFormat(format: ScorecardFormat): void {
+  logFormat = format;
+  // Any text shown for copying by hand belongs to the previous tab.
+  getElement("copy-fallback", HTMLDivElement).hidden = true;
+  refreshLog();
+}
+
+/** Returns the export table for the tab that's showing, newest first. */
+function getVisibleExportTable(): ReturnType<typeof createExportTable> {
+  return createExportTable(logFormat, sortNewestFirst(log.getAll()));
 }
 
 /** Redraws the log table and the export buttons, and updates name suggestions. */
-function refreshPracticeLog(): void {
-  const scorecards = practiceLog.getAll();
-  renderPracticeLog(scorecards, deleteScorecard);
+function refreshLog(): void {
+  const scorecards = log.getAll();
+  renderLog(scorecards, logFormat, deleteScorecard);
   scoreSheet.setArcherSuggestions(getArcherNames(scorecards));
-  const isEmpty = scorecards.length === 0;
-  getElement("download-csv-button", HTMLButtonElement).disabled = isEmpty;
-  getElement("copy-for-spreadsheet-button", HTMLButtonElement).disabled = isEmpty;
+  const isTabEmpty = getVisibleExportTable().rows.length === 0;
+  getElement("download-excel-button", HTMLButtonElement).disabled = scorecards.length === 0;
+  getElement("download-csv-button", HTMLButtonElement).disabled = isTabEmpty;
+  getElement("copy-for-spreadsheet-button", HTMLButtonElement).disabled = isTabEmpty;
 }
 
 /** Shows a message beside the Save button. */
@@ -299,25 +348,43 @@ function clearSaveMessage(): void {
 // Export and import
 // ---------------------------------------------------------------------------
 
-/** Downloads the whole log as a CSV file. */
+/** Downloads the whole log as an Excel workbook, with a sheet for each format. */
+function downloadExcel(): void {
+  const scorecards = sortNewestFirst(log.getAll());
+  const workbook = createXlsx(
+    SCORECARD_FORMATS.map((format) => ({
+      name: FORMAT_LABELS[format],
+      ...createExportTable(format, scorecards),
+    })),
+  );
+  downloadFile(
+    `nasp-log-${getTodayAsIsoDate()}.xlsx`,
+    workbook,
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  );
+  showToast("Excel file downloaded");
+}
+
+/** Downloads the tab that's showing as a CSV file. */
 function downloadCsv(): void {
-  const scorecards = sortNewestFirst(practiceLog.getAll());
-  downloadTextFile(
-    `nasp-practice-${getTodayAsIsoDate()}.csv`,
-    createCsv(scorecards),
+  const scorecards = sortNewestFirst(log.getAll());
+  downloadFile(
+    `nasp-${logFormat}-${getTodayAsIsoDate()}.csv`,
+    createCsv(logFormat, scorecards),
     "text/csv;charset=utf-8",
   );
   showToast("CSV downloaded");
 }
 
-/** Copies the whole log as tab-separated text, ready to paste into a spreadsheet. */
+/** Copies the tab that's showing as tab-separated text, ready to paste into a spreadsheet. */
 async function copyForSpreadsheet(): Promise<void> {
-  const scorecards = sortNewestFirst(practiceLog.getAll());
-  const text = createTabSeparatedText(scorecards);
+  const scorecards = sortNewestFirst(log.getAll());
+  const text = createTabSeparatedText(logFormat, scorecards);
+  const copiedCount = getVisibleExportTable().rows.length;
   try {
     await navigator.clipboard.writeText(text);
     showToast(
-      `Copied ${formatCount(scorecards.length, "scorecard")}. Paste into Excel or Google Sheets.`,
+      `Copied ${formatCount(copiedCount, "scorecard")}. Paste into Excel or Google Sheets.`,
     );
   } catch {
     // Some browsers block the clipboard. Show the text so it can be copied by hand.
@@ -345,14 +412,14 @@ async function importCsv(file: File): Promise<void> {
 
   let result: AddManyResult;
   try {
-    result = practiceLog.addMany(imported.scorecards);
+    result = log.addMany(imported.scorecards);
   } catch {
     showToast("This browser wouldn't save the imported scorecards.");
     return;
   }
-  refreshPracticeLog();
+  refreshLog();
 
-  const parts = [`Imported ${formatCount(result.addedCount, "scorecard")}`];
+  const parts = [`Imported ${describeImportedScorecards(result)}`];
   if (result.duplicateCount > 0) {
     parts.push(`${result.duplicateCount} already in the log`);
   }
@@ -360,6 +427,19 @@ async function importCsv(file: File): Promise<void> {
     parts.push(`${formatCount(imported.unreadableRowCount, "unreadable row")} skipped`);
   }
   showToast(`${parts.join(", ")}.`);
+}
+
+/** Words the import count by format, such as "2 Bullseye and 3 3D scorecards". */
+function describeImportedScorecards({ addedCount, addedCountByFormat }: AddManyResult): string {
+  const { bullseye, "3d": threeD } = addedCountByFormat;
+  if (bullseye > 0 && threeD > 0) {
+    return `${bullseye} ${FORMAT_LABELS.bullseye} and ${formatCount(threeD, `${FORMAT_LABELS["3d"]} scorecard`)}`;
+  }
+  if (addedCount === 0) {
+    return "0 scorecards";
+  }
+  const label = FORMAT_LABELS[bullseye > 0 ? "bullseye" : "3d"];
+  return formatCount(addedCount, `${label} scorecard`);
 }
 
 // ---------------------------------------------------------------------------

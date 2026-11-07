@@ -1,10 +1,22 @@
 /**
- * @file The editable score sheet: archer details, 30 arrow pickers, the
+ * @file The editable score sheet: scorecard details, 30 arrow pickers, the
  * running totals, and the list of spots the reader wants checked.
  */
 
 import { getTodayAsIsoDate } from "./dates.ts";
 import { createElement, getElement } from "./page-helpers.ts";
+import {
+  ANIMALS,
+  FORMAT_LABELS,
+  SCORECARD_FORMATS,
+  SIDES,
+  SIDE_LABELS,
+  getRoundAnimals,
+  parseAnimal,
+  parseFormat,
+  parseSide,
+} from "./scorecard-format.ts";
+import type { Animal, ScorecardFormat, Side } from "./scorecard-format.ts";
 import {
   ARROWS_PER_ROUND,
   ARROW_COUNT,
@@ -40,6 +52,11 @@ export interface ScorecardDetails {
   /** "YYYY-MM-DD". */
   date: string;
   shooterNumber: string;
+  format: ScorecardFormat;
+  /** Null for Bullseye, or when no side has been chosen yet. */
+  side: Side | null;
+  /** Null for Bullseye, or when no animal has been chosen yet. */
+  firstAnimal: Animal | null;
 }
 
 /** An entry in the "needs a look" list. */
@@ -55,8 +72,13 @@ export class ScoreSheet {
   private arrowFlags: ReviewFlag[] = new Array<ReviewFlag>(ARROW_COUNT).fill(null);
   private shooterNumberNeedsReview = false;
   private readonly changeListeners: Array<() => void> = [];
+  private readonly formatListeners: Array<(format: ScorecardFormat) => void> = [];
 
   private readonly elements = {
+    panel: getElement("score-sheet-panel", HTMLElement),
+    formatSelect: getElement("format-select", HTMLSelectElement),
+    sideSelect: getElement("side-select", HTMLSelectElement),
+    firstAnimalSelect: getElement("first-animal-select", HTMLSelectElement),
     archerInput: getElement("archer-input", HTMLInputElement),
     archerNames: getElement("archer-names", HTMLDataListElement),
     dateInput: getElement("scorecard-date-input", HTMLInputElement),
@@ -71,11 +93,13 @@ export class ScoreSheet {
   };
 
   private readonly arrowSelects: HTMLSelectElement[] = [];
+  private readonly roundLabelElements: HTMLSpanElement[] = [];
   private readonly roundTotalElements: HTMLSpanElement[] = [];
   /** One per distance: 10 m, then 15 m. */
   private readonly distanceTotalElements: HTMLSpanElement[] = [];
 
   constructor() {
+    this.buildFormatControls();
     this.buildRoundRows();
     this.elements.dateInput.value = getTodayAsIsoDate();
     this.elements.shooterNumberInput.addEventListener("input", () =>
@@ -87,6 +111,17 @@ export class ScoreSheet {
   /** Registers a function to call whenever an arrow score changes. */
   onChange(listener: () => void): void {
     this.changeListeners.push(listener);
+  }
+
+  /** Registers a function to call when someone chooses a different format. */
+  onFormatChange(listener: (format: ScorecardFormat) => void): void {
+    this.formatListeners.push(listener);
+  }
+
+  /** Switches the sheet to a format. */
+  setFormat(format: ScorecardFormat): void {
+    this.elements.formatSelect.value = format;
+    this.render();
   }
 
   /** Fills the sheet with what the reader found. */
@@ -119,16 +154,40 @@ export class ScoreSheet {
   }
 
   getScorecardDetails(): ScorecardDetails {
+    const format = this.getFormat();
     return {
       archer: this.elements.archerInput.value.trim(),
       date: this.elements.dateInput.value || getTodayAsIsoDate(),
       shooterNumber: this.elements.shooterNumberInput.value.trim(),
+      format,
+      side: format === "3d" ? this.getSide() : null,
+      firstAnimal: format === "3d" ? this.getFirstAnimal() : null,
     };
   }
 
   /** Empties the archer's name, so the next card isn't saved under the last archer. */
   clearArcher(): void {
     this.elements.archerInput.value = "";
+  }
+
+  /**
+   * Clears the side and first animal. The card doesn't record them and a saved
+   * scorecard can't be edited, so each new card has to choose its own.
+   */
+  clearSideAndFirstAnimal(): void {
+    this.elements.sideSelect.value = "";
+    this.elements.firstAnimalSelect.value = "";
+    this.render();
+  }
+
+  /** Moves the keyboard focus to the side. */
+  focusSide(): void {
+    this.elements.sideSelect.focus();
+  }
+
+  /** Moves the keyboard focus to the first animal. */
+  focusFirstAnimal(): void {
+    this.elements.firstAnimalSelect.focus();
   }
 
   /** Moves the keyboard focus to the archer's name. */
@@ -152,6 +211,38 @@ export class ScoreSheet {
     );
   }
 
+  /** Fills the format, side and first animal drop-downs and listens for changes. */
+  private buildFormatControls(): void {
+    const { formatSelect, sideSelect, firstAnimalSelect } = this.elements;
+    formatSelect.append(
+      ...SCORECARD_FORMATS.map((format) => new Option(FORMAT_LABELS[format], format)),
+    );
+    sideSelect.append(new Option("Choose a side", ""));
+    sideSelect.append(...SIDES.map((side) => new Option(SIDE_LABELS[side], side)));
+    firstAnimalSelect.append(new Option("Choose an animal", ""));
+    firstAnimalSelect.append(...ANIMALS.map((animal) => new Option(animal, animal)));
+
+    formatSelect.addEventListener("change", () => {
+      this.render();
+      const format = this.getFormat();
+      this.formatListeners.forEach((listener) => listener(format));
+    });
+    sideSelect.addEventListener("change", () => this.render());
+    firstAnimalSelect.addEventListener("change", () => this.render());
+  }
+
+  private getFormat(): ScorecardFormat {
+    return parseFormat(this.elements.formatSelect.value) ?? "bullseye";
+  }
+
+  private getSide(): Side | null {
+    return parseSide(this.elements.sideSelect.value);
+  }
+
+  private getFirstAnimal(): Animal | null {
+    return parseAnimal(this.elements.firstAnimalSelect.value);
+  }
+
   /**
    * Creates the six round rows, each with five arrow pickers and a total,
    * plus a heading before each distance.
@@ -173,9 +264,9 @@ export class ScoreSheet {
       }
 
       const row = createElement("div", { className: "round-row" });
-      row.append(
-        createElement("span", { className: "round-label", text: `Round ${roundIndex + 1}` }),
-      );
+      const roundLabel = createElement("span", { className: "round-label" });
+      this.roundLabelElements.push(roundLabel);
+      row.append(roundLabel);
       for (let arrowInRound = 0; arrowInRound < ARROWS_PER_ROUND; arrowInRound++) {
         const select = this.createArrowSelect(roundIndex * ARROWS_PER_ROUND + arrowInRound);
         this.arrowSelects.push(select);
@@ -220,6 +311,16 @@ export class ScoreSheet {
   /** Updates everything on the sheet from the current scores and flags. */
   private render(): void {
     const summary = summarizeScorecard(this.arrowScores);
+
+    const isThreeD = this.getFormat() === "3d";
+    this.elements.panel.classList.toggle("is-three-d", isThreeD);
+    const firstAnimal = isThreeD ? this.getFirstAnimal() : null;
+    const side = isThreeD ? this.getSide() : null;
+    const roundAnimals = side && firstAnimal ? getRoundAnimals(firstAnimal, side) : null;
+    this.roundLabelElements.forEach((element, roundIndex) => {
+      const roundName = `Round ${roundIndex + 1}`;
+      element.textContent = roundAnimals ? `${roundName} · ${roundAnimals[roundIndex]}` : roundName;
+    });
 
     this.arrowSelects.forEach((select, arrowIndex) => {
       const score = this.arrowScores[arrowIndex];

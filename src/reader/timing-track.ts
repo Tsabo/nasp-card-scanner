@@ -11,7 +11,7 @@ import type { Point, Vector } from "./geometry.ts";
 import type { MarkCandidate } from "./mark-candidates.ts";
 
 /** Fewest marks a line needs before it can be the timing track (the card has 36). */
-const MINIMUM_TRACK_MARKS = 30;
+const MINIMUM_TRACK_MARKS = 22;
 
 /** Two candidates are "similar" when their areas differ by less than this factor. */
 const PAIR_AREA_RATIO_LIMIT = 1.8;

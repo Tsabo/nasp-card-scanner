@@ -63,7 +63,11 @@ export function showToast(message: string): void {
  *
  * @param mimeType Such as "text/csv;charset=utf-8".
  */
-export function downloadTextFile(fileName: string, contents: string, mimeType: string): void {
+export function downloadFile(
+  fileName: string,
+  contents: string | Uint8Array<ArrayBuffer>,
+  mimeType: string,
+): void {
   const url = URL.createObjectURL(new Blob([contents], { type: mimeType }));
   const link = createElement("a");
   link.href = url;

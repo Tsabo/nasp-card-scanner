@@ -9,7 +9,7 @@
  * 2. {@link findMarkCandidates}: find every small dark bar.
  * 3. {@link findTimingTrack}: pick out the column of timing marks.
  * 4. {@link alignTrackToCard}: work out which mark is which row, and which way up the card is.
- * 5. {@link locateBubbles}: find every bubble's centre.
+ * 5. {@link locateBubbles}: fit the bubble grid to the printed ovals.
  * 6. {@link measureBubbleFills} and {@link readRows}: decide which bubble is filled on each row.
  *
  * Everything runs locally. Nothing here touches the page or the network,
@@ -17,7 +17,8 @@
  */
 
 import { locateBubbles } from "./bubble-grid.ts";
-import { BUBBLE_SPACING, ROW_COUNT, ROWS_PER_SECTION, SCORE_ROW_COUNT } from "./card-layout.ts";
+import type { BubbleLayout } from "./bubble-grid.ts";
+import { ROW_COUNT, SCORE_ROW_COUNT } from "./card-layout.ts";
 import type { Point } from "./geometry.ts";
 import { prepareImage } from "./image-maps.ts";
 import { findMarkCandidates } from "./mark-candidates.ts";
@@ -28,6 +29,17 @@ import { alignTrackToCard } from "./track-alignment.ts";
 /** Shown when the photo has no recognisable timing marks. */
 export const NO_TIMING_MARKS_MESSAGE =
   "Couldn't find the black timing marks along the card's edge.";
+
+/** Shown when the timing marks were found but the bubbles don't line up with them. */
+export const NO_BUBBLES_MESSAGE =
+  "Found the timing marks but couldn't line up the bubbles. Try another photo with the whole card in view.";
+
+/**
+ * Lowest {@link BubbleLayout.fitScore} worth reading. Real cards score 0.14 or
+ * more, while photos with marks but no bubbles score 0.03 or less. Below this,
+ * any scores would be made up, so the reader reports a failure instead.
+ */
+const MINIMUM_FIT_SCORE = 0.08;
 
 /** One row of bubbles as the reader saw it. */
 export interface RowResult {
@@ -61,10 +73,8 @@ export interface CardReadSuccess {
   timingMarks: TimingMarkResult[];
   /** For troubleshooting. */
   diagnostics: {
-    /** The bubble spacing found compared with the template (1 = exact). */
-    spacingScale: number;
-    /** How many sections fell back to the template grid. */
-    sectionsFromTemplate: number;
+    /** How well the bubble grid fits the printed ovals; see {@link BubbleLayout}. */
+    fitScore: number;
   };
 }
 
@@ -110,7 +120,12 @@ export function analyzeCard(
     };
   }
 
-  const { rows, grids } = locateBubbles(alignment.rowAnchors, alignment.acrossCard, image);
+  const { rows, fitScore } = locateBubbles(alignment, image);
+  const timingMarks = alignment.rowAnchors.map(({ x, y, wasDetected }) => ({ x, y, wasDetected }));
+  if (fitScore < MINIMUM_FIT_SCORE) {
+    return { ok: false, error: NO_BUBBLES_MESSAGE, timingMarks };
+  }
+
   const fillsByRow = rows.map((row) => measureBubbleFills(row, image.darkness));
   const readings = readRows(fillsByRow);
 
@@ -121,20 +136,11 @@ export function analyzeCard(
     fills: fillsByRow[rowIndex],
   }));
 
-  let spacingScaleSum = 0;
-  grids.forEach((grid, sectionIndex) => {
-    const markSpacing = alignment.rowAnchors[sectionIndex * ROWS_PER_SECTION].markSpacing;
-    spacingScaleSum += grid.alongCoefficients[1] / (markSpacing * BUBBLE_SPACING);
-  });
-
   return {
     ok: true,
     scores: results.slice(0, SCORE_ROW_COUNT),
     shooter: results.slice(SCORE_ROW_COUNT, ROW_COUNT),
-    timingMarks: alignment.rowAnchors.map(({ x, y, wasDetected }) => ({ x, y, wasDetected })),
-    diagnostics: {
-      spacingScale: spacingScaleSum / grids.length,
-      sectionsFromTemplate: grids.filter((grid) => grid.usedTemplate).length,
-    },
+    timingMarks,
+    diagnostics: { fitScore },
   };
 }

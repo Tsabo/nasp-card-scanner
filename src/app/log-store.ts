@@ -1,5 +1,5 @@
 /**
- * @file Keeps the practice log in the browser's local storage.
+ * @file Keeps the log in the browser's local storage.
  *
  * Local storage belongs to one browser on one device. To move scorecards
  * between devices, export a CSV on one and import it on the other.
@@ -7,6 +7,7 @@
 
 import { getScorecardIdentity, normalizeStoredScorecard } from "./scorecard.ts";
 import type { NewScorecard, Scorecard } from "./scorecard.ts";
+import type { ScorecardFormat } from "./scorecard-format.ts";
 
 const STORAGE_KEY = "nasp-scorecards";
 
@@ -19,26 +20,28 @@ const LEGACY_STORAGE_KEY = "nasp-practice-log";
  */
 export class StorageUnavailableError extends Error {
   constructor() {
-    super("This browser wouldn't save the practice log.");
+    super("This browser wouldn't save the log.");
     this.name = "StorageUnavailableError";
   }
 }
 
-/** The outcome of {@link PracticeLogStore.addMany}. */
+/** The outcome of {@link LogStore.addMany}. */
 export interface AddManyResult {
   addedCount: number;
+  /** How many of the added scorecards are in each format. */
+  addedCountByFormat: Record<ScorecardFormat, number>;
   /** Scorecards skipped because they were already in the log. */
   duplicateCount: number;
 }
 
 /**
- * The practice log, backed by local storage.
+ * The log, backed by local storage.
  *
  * Every change is saved straight away. If saving fails, the change is
  * undone and a {@link StorageUnavailableError} is thrown, so what's on
  * screen always matches what's stored.
  */
-export class PracticeLogStore {
+export class LogStore {
   private readonly storage: Storage;
   private scorecards: Scorecard[];
 
@@ -86,7 +89,13 @@ export class PracticeLogStore {
     if (toAdd.length > 0) {
       this.commit([...this.scorecards, ...toAdd]);
     }
-    return { addedCount: toAdd.length, duplicateCount: scorecards.length - toAdd.length };
+    const countAdded = (format: ScorecardFormat): number =>
+      toAdd.filter((scorecard) => scorecard.format === format).length;
+    return {
+      addedCount: toAdd.length,
+      addedCountByFormat: { bullseye: countAdded("bullseye"), "3d": countAdded("3d") },
+      duplicateCount: scorecards.length - toAdd.length,
+    };
   }
 
   /**

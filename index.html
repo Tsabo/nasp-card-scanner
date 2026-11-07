@@ -6,7 +6,7 @@
     <title>NASP Card Scanner</title>
     <meta
       name="description"
-      content="Photograph a NASP practice score card; the page reads the bubbles, totals each round, and keeps a practice log you can export to a spreadsheet."
+      content="Photograph a NASP practice score card; the page reads the bubbles, totals each round, and keeps a log you can export to a spreadsheet."
     />
 
     <!-- Home-screen app details -->
@@ -140,7 +140,7 @@
         </section>
 
         <!-- Right: the editable score sheet. -->
-        <section class="panel" aria-labelledby="score-sheet-heading">
+        <section id="score-sheet-panel" class="panel" aria-labelledby="score-sheet-heading">
           <div class="panel-header">
             <h2 id="score-sheet-heading">Score sheet</h2>
             <span class="label-text">Tap any arrow to change it</span>
@@ -165,6 +165,19 @@
                 placeholder="5 digits"
               />
             </label>
+            <!-- All filled in by score-sheet.js. -->
+            <label class="form-field">
+              Format
+              <select id="format-select"></select>
+            </label>
+            <label class="form-field side-field">
+              Side
+              <select id="side-select"></select>
+            </label>
+            <label class="form-field first-animal-field">
+              First animal
+              <select id="first-animal-select"></select>
+            </label>
           </div>
 
           <div class="score-summary" aria-live="polite">
@@ -172,8 +185,12 @@
               <span id="scorecard-total" class="scorecard-total numeric">0</span>
               <span class="scorecard-maximum"> / 300</span>
             </div>
-            <div class="summary-stat"><b id="ten-meter-total">0</b><span>10 m</span></div>
-            <div class="summary-stat"><b id="fifteen-meter-total">0</b><span>15 m</span></div>
+            <div class="summary-stat distance-stat">
+              <b id="ten-meter-total">0</b><span>10 m</span>
+            </div>
+            <div class="summary-stat distance-stat">
+              <b id="fifteen-meter-total">0</b><span>15 m</span>
+            </div>
             <div class="summary-stat is-tens"><b id="tens-count">0</b><span>10s</span></div>
             <div class="summary-stat"><b id="arrows-entered">0</b><span>of 30 arrows</span></div>
           </div>
@@ -185,7 +202,7 @@
 
           <div class="save-row">
             <button id="save-scorecard-button" class="button is-primary" type="button">
-              Save to practice log
+              Save to log
             </button>
             <span id="save-message" class="save-message"></span>
           </div>
@@ -193,13 +210,28 @@
       </div>
 
       <!-- Bottom: every saved scorecard, with export and import. -->
-      <section class="panel" aria-labelledby="practice-log-heading">
-        <div class="practice-log-header">
+      <section class="panel" aria-labelledby="log-heading">
+        <div class="log-header">
           <div>
-            <h2 id="practice-log-heading">Practice log</h2>
-            <p id="practice-log-message">Saved in this browser on this device.</p>
+            <h2 id="log-heading">Log</h2>
+            <p id="log-message">Saved in this browser on this device.</p>
           </div>
           <div class="button-row">
+            <button id="download-excel-button" class="button" type="button">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 4v12M7 11l5 5 5-5" />
+                <path d="M4 20h16" />
+              </svg>
+              Download Excel
+            </button>
             <button id="download-csv-button" class="button" type="button">
               <svg
                 viewBox="0 0 24 24"
@@ -254,13 +286,35 @@
           </div>
         </div>
 
-        <!-- Filled in by practice-log-view.js. -->
-        <div id="practice-log-table" class="table-scroller"></div>
+        <div class="log-tabs" role="tablist" aria-label="Log format">
+          <!-- Their counts are filled in by log-table.js. -->
+          <button
+            id="log-tab-bullseye"
+            class="log-tab"
+            type="button"
+            role="tab"
+            aria-controls="log-table"
+          >
+            Bullseye
+          </button>
+          <button
+            id="log-tab-3d"
+            class="log-tab"
+            type="button"
+            role="tab"
+            aria-controls="log-table"
+          >
+            3D
+          </button>
+        </div>
+
+        <!-- Filled in by log-table.js. -->
+        <div id="log-table" class="table-scroller" role="tabpanel"></div>
 
         <!-- Shown only when the browser blocks copying to the clipboard. -->
         <div id="copy-fallback" class="copy-fallback" hidden>
           <span id="copy-fallback-message" class="muted-text"></span>
-          <textarea id="copy-fallback-text" readonly aria-label="Practice log as text"></textarea>
+          <textarea id="copy-fallback-text" readonly aria-label="Log as text"></textarea>
         </div>
       </section>
     </div>

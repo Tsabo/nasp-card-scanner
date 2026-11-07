@@ -77,7 +77,9 @@ async function cacheFirst(request: Request): Promise<Response> {
 
 /**
  * Fetches from the network and refreshes the cache, falling back to the
- * cached copy (or the app's start page) when offline.
+ * cached copy when offline. Only page navigations fall back to the app's
+ * start page: a script or stylesheet handed HTML fails with a misleading
+ * MIME type error instead of a plain network error.
  */
 async function networkFirst(request: Request): Promise<Response> {
   try {
@@ -89,7 +91,8 @@ async function networkFirst(request: Request): Promise<Response> {
     return response;
   } catch {
     const cached =
-      (await caches.match(request, { ignoreSearch: true })) ?? (await caches.match("index.html"));
+      (await caches.match(request, { ignoreSearch: true })) ??
+      (request.mode === "navigate" ? await caches.match("index.html") : undefined);
     return cached ?? Response.error();
   }
 }

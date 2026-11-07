@@ -1,8 +1,10 @@
 /**
- * @file The saved-scorecard record, shared by the practice log, the CSV import
+ * @file The saved-scorecard record, shared by the log, the CSV import
  * and export, and the page.
  */
 
+import { parseAnimal, parseFormat, parseSide } from "./scorecard-format.ts";
+import type { Animal, ScorecardFormat, Side } from "./scorecard-format.ts";
 import type { ArrowScore } from "./scoring.ts";
 
 /** One saved scorecard. */
@@ -15,6 +17,11 @@ export interface Scorecard {
   archer: string;
   /** Five-digit shooter number; may be empty. */
   shooterNumber: string;
+  format: ScorecardFormat;
+  /** The side of the range shot from; null for Bullseye. */
+  side: Side | null;
+  /** The animal shot in Round 1; null for Bullseye. */
+  firstAnimal: Animal | null;
   /** 30 scores in card order; null for blanks. */
   arrowScores: ArrowScore[];
   /** When it was saved, in milliseconds since 1970. */
@@ -26,13 +33,17 @@ export type NewScorecard = Omit<Scorecard, "id">;
 
 /**
  * Builds a key that is the same for two scorecards with the same date, archer,
- * shooter number and arrows. Used to skip duplicates on import.
+ * shooter number, format, side, first animal and arrows. Used to skip duplicates on
+ * import.
  */
 export function getScorecardIdentity(scorecard: NewScorecard): string {
   return [
     scorecard.date,
     scorecard.archer.toLowerCase(),
     scorecard.shooterNumber,
+    scorecard.format,
+    scorecard.side ?? "",
+    scorecard.firstAnimal ?? "",
     scorecard.arrowScores.map((score) => score ?? "").join("."),
   ].join("|");
 }
@@ -51,7 +62,9 @@ export function sortNewestFirst(scorecards: readonly Scorecard[]): Scorecard[] {
 /**
  * Converts a record read from storage into a {@link Scorecard}, filling
  * in anything missing. Also accepts the field names used by the first
- * version of the app (`shooter`, `arrows`).
+ * version of the app (`shooter`, `arrows`). Scorecards saved before formats
+ * existed count as Bullseye, and 3D scorecards saved before sides existed count
+ * as the left side.
  *
  * @returns Null when the record is unusable.
  */
@@ -64,11 +77,15 @@ export function normalizeStoredScorecard(stored: unknown): Scorecard | null {
   if (!Array.isArray(arrowScores)) {
     return null;
   }
+  const format = parseFormat(String(record.format ?? "")) ?? "bullseye";
   return {
     id: String(record.id ?? ""),
     date: String(record.date ?? ""),
     archer: String(record.archer ?? ""),
     shooterNumber: String(record.shooterNumber ?? record.shooter ?? ""),
+    format,
+    side: format === "3d" ? (parseSide(String(record.side ?? "")) ?? "left") : null,
+    firstAnimal: format === "3d" ? parseAnimal(String(record.firstAnimal ?? "")) : null,
     arrowScores: arrowScores.map((score: unknown) => (typeof score === "number" ? score : null)),
     createdAt: Number(record.createdAt) || 0,
   };

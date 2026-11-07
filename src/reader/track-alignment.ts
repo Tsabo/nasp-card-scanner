@@ -11,22 +11,19 @@
 
 import {
   ROW_COUNT,
-  ROWS_PER_SECTION,
-  SECTION_COUNT,
   TEMPLATE_MARK_PITCH,
   TEMPLATE_MIDPOINT,
   TIMING_MARK_POSITIONS,
-  getSectionIndex,
   getTimingMarkIndex,
 } from "./card-layout.ts";
-import { directionBetween, distanceBetween, moveAlong } from "./geometry.ts";
+import { directionBetween, moveAlong } from "./geometry.ts";
 import type { Point, Vector } from "./geometry.ts";
 import { findNearestIndex, solveLeastSquares } from "./statistics.ts";
 import type { Triple } from "./statistics.ts";
 import type { TimingTrack, TrackMark } from "./timing-track.ts";
 
 /** Fewest of the card's 36 marks that must line up for the match to be trusted. */
-const MINIMUM_MATCHED_MARKS = 28;
+const MINIMUM_MATCHED_MARKS = 22;
 
 /** A detected mark matches a template mark when it is within this share of a mark spacing. */
 const MATCH_TOLERANCE = 0.3;
@@ -36,15 +33,19 @@ const REFINEMENT_ROUNDS = 3;
 
 /** Where a row's timing mark is in the photo. */
 export interface RowAnchor extends Point {
-  /**
-   * Distance between neighbouring marks in this row's section, in pixels.
-   * Used as the unit for every other measurement.
-   */
-  markSpacing: number;
-  /** 0 to 5 for Round 1 to 6, 6 for Shooter #. */
-  sectionIndex: number;
   /** False when the mark was hidden and its position was filled in from the pattern. */
   wasDetected: boolean;
+}
+
+/**
+ * A point in homogeneous coordinates: the photo position is (x / w, y / w).
+ * Perspective is a straight-line (linear) formula in this form, which is what
+ * lets the bubble grid extend the track's fit across the card.
+ */
+export interface HomogeneousPoint {
+  x: number;
+  y: number;
+  w: number;
 }
 
 /** The card's orientation and row positions in the photo. */
@@ -55,6 +56,13 @@ export interface TrackAlignment {
   downCard: Vector;
   /** Unit vector pointing from the timing marks toward the bubbles. */
   acrossCard: Vector;
+  /**
+   * Where a position on the template's timing-mark column lands in the photo,
+   * from the fit through all the detected marks.
+   *
+   * @param templatePosition Distance down the card, in template pixels.
+   */
+  markAt: (templatePosition: number) => HomogeneousPoint;
 }
 
 /**
@@ -78,7 +86,10 @@ export function alignTrackToCard(track: TimingTrack): TrackAlignment | null {
   // quarter turn anticlockwise points right.
   const acrossCard = { x: downCard.y, y: -downCard.x };
 
-  return { rowAnchors, downCard, acrossCard };
+  const markAt = (templatePosition: number): HomogeneousPoint =>
+    bestMatch.projection.toPhoto(templatePosition, track);
+
+  return { rowAnchors, downCard, acrossCard, markAt };
 }
 
 /** A template position paired with a detected position along the track. */
@@ -131,7 +142,23 @@ class TrackProjection {
   }
 
   /**
-   * Returns the photo's spacing between neighbouring marks near a point on
+   * Returns where a template position lands in the photo. Writing the track
+   * position as a fraction turns moving along the track into a linear formula.
+   */
+  toPhoto(templatePosition: number, track: TimingTrack): HomogeneousPoint {
+    const [a, b, c] = this.coefficients;
+    const u = normalizeTemplatePosition(templatePosition);
+    const w = c * u + 1;
+    const distanceTimesW = a * u + b;
+    return {
+      x: track.center.x * w + track.direction.x * distanceTimesW,
+      y: track.center.y * w + track.direction.y * distanceTimesW,
+      w,
+    };
+  }
+
+  /**
+   * Returns the photo's spacing between neighboring marks near a point on
    * the template, in pixels. Negative when the track runs backward.
    */
   markSpacingAt(templatePosition: number): number {
@@ -310,7 +337,7 @@ function placeRowAnchors(track: TimingTrack, match: MatchResult): RowAnchor[] {
     detectedByTemplateIndex.set(templateIndex, track.marks[detectedIndex]);
   }
 
-  const markPositions: Array<Point & { wasDetected: boolean }> = [];
+  const markPositions: RowAnchor[] = [];
   for (let rowIndex = 0; rowIndex < ROW_COUNT; rowIndex++) {
     const templateIndex = getTimingMarkIndex(rowIndex);
     const detected = detectedByTemplateIndex.get(templateIndex);
@@ -325,27 +352,7 @@ function placeRowAnchors(track: TimingTrack, match: MatchResult): RowAnchor[] {
     }
   }
 
-  // The spacing between a section's first and last mark sets the scale for
-  // that section's rows.
-  const sectionSpacing: number[] = [];
-  for (let sectionIndex = 0; sectionIndex < SECTION_COUNT; sectionIndex++) {
-    const firstRow = sectionIndex * ROWS_PER_SECTION;
-    const lastRow = firstRow + ROWS_PER_SECTION - 1;
-    sectionSpacing.push(
-      distanceBetween(markPositions[firstRow], markPositions[lastRow]) / (ROWS_PER_SECTION - 1),
-    );
-  }
-
-  return markPositions.map((position, rowIndex) => {
-    const sectionIndex = getSectionIndex(rowIndex);
-    return {
-      x: position.x,
-      y: position.y,
-      markSpacing: sectionSpacing[sectionIndex],
-      sectionIndex,
-      wasDetected: position.wasDetected,
-    };
-  });
+  return markPositions;
 }
 
 function pair(

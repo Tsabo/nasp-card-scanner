@@ -1,6 +1,8 @@
 /**
  * @file NASP scorecard scoring rules: 6 rounds of 5 arrows, scored 0 to 10.
- * Rounds 1 to 3 are shot from 10 meters and rounds 4 to 6 from 15 meters.
+ * In Bullseye, rounds 1 to 3 are shot from 10 meters and rounds 4 to 6 from 15
+ * meters. In 3D, the distance depends on the animal, so the 10 and 15 meter
+ * totals only mean something in Bullseye.
  *
  * Pure functions only, so they're easy to test.
  */
@@ -11,7 +13,7 @@ export const ARROW_COUNT = ROUND_COUNT * ARROWS_PER_ROUND;
 export const MAXIMUM_ARROW_SCORE = 10;
 export const MAXIMUM_SCORECARD_SCORE = ARROW_COUNT * MAXIMUM_ARROW_SCORE;
 
-/** Rounds shot from 10 meters; the rest are from 15 meters. */
+/** Bullseye rounds shot from 10 meters; the rest are from 15 meters. */
 export const TEN_METER_ROUND_COUNT = 3;
 
 /** One arrow's score, or null when it hasn't been entered. */
