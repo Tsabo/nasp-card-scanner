@@ -218,9 +218,19 @@ export class ScoreSheet {
     return this.getReviewItems().length;
   }
 
-  /** Sets what the log knows about archers, for filling in names and numbers. */
+  /**
+   * Sets what the log knows about archers, for suggesting names while typing
+   * and for filling in names and numbers.
+   */
   setArcherDirectory(directory: ArcherDirectory): void {
     this.archerDirectory = directory;
+    this.elements.archerNames.replaceChildren(
+      ...directory.getNames().map((name) => {
+        const option = createElement("option");
+        option.value = name;
+        return option;
+      }),
+    );
     this.render();
   }
 
@@ -252,17 +262,6 @@ export class ScoreSheet {
   /** Moves the keyboard focus to Round 1, arrow 1. */
   focusFirstArrow(): void {
     this.arrowSelects[0].focus();
-  }
-
-  /** Offers these names as suggestions while typing the archer's name. */
-  setArcherSuggestions(names: readonly string[]): void {
-    this.elements.archerNames.replaceChildren(
-      ...names.map((name) => {
-        const option = createElement("option");
-        option.value = name;
-        return option;
-      }),
-    );
   }
 
   /** Fills the format, side and first animal drop-downs and listens for changes. */

@@ -4,7 +4,7 @@
  * filled-in value gives way. No page code, so the rules can be tested in Node.
  */
 
-import { isCompleteShooterNumber, sortNewestFirst } from "./scorecard.ts";
+import { getNameKey, isCompleteShooterNumber, sortNewestFirst } from "./scorecard.ts";
 import type { Scorecard } from "./scorecard.ts";
 
 /** The part of a reader's row that matters for the Shooter #. */
@@ -58,27 +58,31 @@ export function readShooterNumber(digits: readonly ShooterDigit[]): {
   };
 }
 
-/** Puts a name in the form used to compare names, which ignores case and stray spaces. */
-function getNameKey(name: string): string {
-  return name.trim().toLowerCase();
-}
-
 /**
- * What the log knows about archers: each name's latest Shooter #, and each
- * Shooter #'s latest name. Only complete numbers count, so partial numbers from
- * old logs and imports are never filled in on a new card.
+ * What the log knows about archers: every name in its latest spelling, each
+ * name's latest Shooter #, and each Shooter #'s latest name. Only complete
+ * numbers count, so partial numbers from old logs and imports are never filled
+ * in on a new card.
  */
 export class ArcherDirectory {
   private readonly numbersByName = new Map<string, string>();
   private readonly namesByNumber = new Map<string, string>();
+  /** Each name's latest spelling. */
+  private readonly spellingsByName = new Map<string, string>();
 
   constructor(scorecards: readonly Scorecard[] = []) {
     for (const { archer, shooterNumber } of sortNewestFirst(scorecards)) {
       const name = archer.trim();
-      if (name === "" || !isCompleteShooterNumber(shooterNumber)) {
+      if (name === "") {
         continue;
       }
       const nameKey = getNameKey(name);
+      if (!this.spellingsByName.has(nameKey)) {
+        this.spellingsByName.set(nameKey, name);
+      }
+      if (!isCompleteShooterNumber(shooterNumber)) {
+        continue;
+      }
       if (!this.numbersByName.has(nameKey)) {
         this.numbersByName.set(nameKey, shooterNumber);
       }
@@ -96,6 +100,15 @@ export class ArcherDirectory {
   /** Returns the name on the latest scorecard with this Shooter # and a name. */
   findArcher(shooterNumber: string): string | null {
     return this.namesByNumber.get(shooterNumber) ?? null;
+  }
+
+  /**
+   * Lists every name in the log once, in its latest spelling, alphabetically,
+   * for the name suggestions on the score sheet. Includes names with no
+   * complete Shooter #.
+   */
+  getNames(): string[] {
+    return [...this.spellingsByName.values()].sort((first, second) => first.localeCompare(second));
   }
 }
 

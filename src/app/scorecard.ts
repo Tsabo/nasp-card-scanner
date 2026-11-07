@@ -31,6 +31,14 @@ export function isPartialShooterNumber(shooterNumber: string): boolean {
   return shooterNumber !== "" && !isCompleteShooterNumber(shooterNumber);
 }
 
+/**
+ * Puts a name in the form used to compare names. Names that differ only in
+ * capitalization or stray spaces are the same name.
+ */
+export function getNameKey(name: string): string {
+  return name.trim().toLowerCase();
+}
+
 /** One saved scorecard. */
 export interface Scorecard {
   /** Unique within this browser's log. */
@@ -216,7 +224,7 @@ function readArrowScore(cell: string): ArrowScore | undefined {
 export function getScorecardIdentity(scorecard: NewScorecard): string {
   return [
     scorecard.date,
-    scorecard.archer.toLowerCase(),
+    getNameKey(scorecard.archer),
     padShooterNumber(scorecard.shooterNumber),
     scorecard.format,
     scorecard.side ?? "",

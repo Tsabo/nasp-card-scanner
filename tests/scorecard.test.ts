@@ -263,6 +263,12 @@ describe("getScorecardIdentity", () => {
     );
   });
 
+  it("matches names that differ only in capitalization or stray spaces", () => {
+    for (const archer of ["kyle", " Kyle ", "KYLE"]) {
+      assert.equal(getScorecardIdentity({ ...SCORECARD, archer }), getScorecardIdentity(SCORECARD));
+    }
+  });
+
   it("tells apart different Shooter #s", () => {
     assert.notEqual(
       getScorecardIdentity({ ...SCORECARD, shooterNumber: "00123" }),
