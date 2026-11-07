@@ -137,6 +137,26 @@ describe("LogStore", () => {
     assert.deepEqual(new LogStore(storage).getAll(), [saved]);
   });
 
+  it("keeps a damaged scorecard, repaired, after the next save", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      "nasp-scorecards",
+      JSON.stringify([{ ...createScorecard("Kyle"), id: "scorecard-1", arrowScores: [10, 11] }]),
+    );
+    new LogStore(storage).add(createScorecard("Ryan"));
+
+    const [kyle] = new LogStore(storage).getAll();
+    assert.equal(kyle.archer, "Kyle");
+    assert.deepEqual(kyle.arrowScores, [10, ...new Array(29).fill(null)]);
+  });
+
+  it("skips an import whose Shooter # lost its leading zeros as a duplicate", () => {
+    const store = new LogStore(new MemoryStorage());
+    store.add({ ...createScorecard(), shooterNumber: "00123" });
+    const result = store.addMany([{ ...createScorecard(), shooterNumber: "123" }]);
+    assert.equal(result.duplicateCount, 1);
+  });
+
   it("leaves the log unchanged when the browser refuses to save", () => {
     const store = new LogStore(new MemoryStorage({ refuseWrites: true }));
     assert.throws(() => store.add(createScorecard()), StorageUnavailableError);

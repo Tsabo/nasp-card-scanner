@@ -24,9 +24,10 @@ import { downloadFile, formatCount, getElement, showToast } from "./page-helpers
 import { PhotoPanel } from "./photo-panel.ts";
 import { LogStore, StorageUnavailableError } from "./log-store.ts";
 import type { AddManyResult } from "./log-store.ts";
-import { ArcherDirectory, isPartialShooterNumber, readShooterNumber } from "./archer-fields.ts";
+import { ArcherDirectory, readShooterNumber } from "./archer-fields.ts";
 import { connectLogTabs, getArcherNames, renderLog } from "./log-table.ts";
-import { sortNewestFirst } from "./scorecard.ts";
+import { findSaveProblem, sortNewestFirst } from "./scorecard.ts";
+import type { SaveProblem } from "./scorecard.ts";
 import {
   FORMAT_LABELS,
   SCORECARD_FORMATS,
@@ -35,7 +36,7 @@ import {
 } from "./scorecard-format.ts";
 import type { ScorecardFormat } from "./scorecard-format.ts";
 import { ScoreSheet } from "./score-sheet.ts";
-import { ARROW_COUNT, summarizeScorecard } from "./scoring.ts";
+import { summarizeScorecard } from "./scoring.ts";
 import { createXlsx } from "./xlsx.ts";
 
 /** The simulated card shown when the page first opens. */
@@ -258,28 +259,9 @@ function saveScorecard(): void {
   const arrowScores = scoreSheet.getArrowScores();
   const blankCount = arrowScores.filter((score) => score === null).length;
 
-  if (!details.archer && !details.shooterNumber) {
-    setSaveMessage(MESSAGES.needsArcher, { isProblem: true });
-    scoreSheet.focusArcher();
-    return;
-  }
-  if (isPartialShooterNumber(details.shooterNumber)) {
-    setSaveMessage(MESSAGES.partialShooterNumber, { isProblem: true });
-    scoreSheet.showShooterNumberProblem();
-    return;
-  }
-  if (details.format === "3d" && details.side === null) {
-    setSaveMessage(MESSAGES.needsSide, { isProblem: true });
-    scoreSheet.focusSide();
-    return;
-  }
-  if (details.format === "3d" && details.firstAnimal === null) {
-    setSaveMessage(MESSAGES.needsFirstAnimal, { isProblem: true });
-    scoreSheet.focusFirstAnimal();
-    return;
-  }
-  if (blankCount === ARROW_COUNT) {
-    setSaveMessage(MESSAGES.noScores, { isProblem: true });
+  const problem = findSaveProblem({ ...details, arrowScores });
+  if (problem !== null) {
+    showSaveProblem(problem);
     return;
   }
 
@@ -302,6 +284,31 @@ function saveScorecard(): void {
       ? "Saved. Scan the next card when you're ready."
       : `Saved with ${formatCount(blankCount, "blank arrow")} counted as 0.`,
   );
+}
+
+/** Explains why the score sheet can't be saved, and moves to the field to fix. */
+function showSaveProblem(problem: SaveProblem): void {
+  switch (problem) {
+    case "no-archer":
+      setSaveMessage(MESSAGES.needsArcher, { isProblem: true });
+      scoreSheet.focusArcher();
+      return;
+    case "partial-shooter-number":
+      setSaveMessage(MESSAGES.partialShooterNumber, { isProblem: true });
+      scoreSheet.showShooterNumberProblem();
+      return;
+    case "no-side":
+      setSaveMessage(MESSAGES.needsSide, { isProblem: true });
+      scoreSheet.focusSide();
+      return;
+    case "no-first-animal":
+      setSaveMessage(MESSAGES.needsFirstAnimal, { isProblem: true });
+      scoreSheet.focusFirstAnimal();
+      return;
+    case "no-scores":
+      setSaveMessage(MESSAGES.noScores, { isProblem: true });
+      return;
+  }
 }
 
 /** Deletes a scorecard from the log. */
