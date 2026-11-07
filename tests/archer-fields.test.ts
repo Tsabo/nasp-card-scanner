@@ -8,8 +8,6 @@ import {
   changeArcher,
   changeShooterNumber,
   findMismatchedNumber,
-  isCompleteShooterNumber,
-  isPartialShooterNumber,
   isShooterNumberFlagged,
   readShooterNumber,
 } from "../src/app/archer-fields.ts";
@@ -44,20 +42,6 @@ const DIRECTORY = new ArcherDirectory([
   createScorecard("Ben Ray", BEN_NUMBER),
   createScorecard("Sam Lee", ""),
 ]);
-
-describe("Shooter # completeness", () => {
-  it("counts leading zeros as digits", () => {
-    assert.equal(isCompleteShooterNumber("00123"), true);
-    assert.equal(isPartialShooterNumber("00123"), false);
-  });
-
-  it("treats 1 to 4 digits as partial, and blank as neither", () => {
-    assert.equal(isCompleteShooterNumber("123"), false);
-    assert.equal(isPartialShooterNumber("123"), true);
-    assert.equal(isCompleteShooterNumber(""), false);
-    assert.equal(isPartialShooterNumber(""), false);
-  });
-});
 
 describe("readShooterNumber", () => {
   const clean = (value: number) => ({ value, flag: null });

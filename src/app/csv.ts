@@ -9,25 +9,11 @@
  * on another device without losing anything.
  */
 
-import { getTodayAsIsoDate } from "./dates.ts";
+import { readImportedScorecard } from "./scorecard.ts";
 import type { NewScorecard, Scorecard } from "./scorecard.ts";
-import {
-  FORMAT_LABELS,
-  SIDE_LABELS,
-  getRoundAnimals,
-  parseAnimal,
-  parseFormat,
-  parseSide,
-} from "./scorecard-format.ts";
+import { FORMAT_LABELS, SIDE_LABELS, getRoundAnimals } from "./scorecard-format.ts";
 import type { ScorecardFormat } from "./scorecard-format.ts";
-import {
-  ARROWS_PER_ROUND,
-  ARROW_COUNT,
-  MAXIMUM_ARROW_SCORE,
-  ROUND_COUNT,
-  summarizeScorecard,
-} from "./scoring.ts";
-import type { ArrowScore } from "./scoring.ts";
+import { ARROWS_PER_ROUND, ARROW_COUNT, ROUND_COUNT, summarizeScorecard } from "./scoring.ts";
 
 /** The heading for each arrow column, such as "R3A4" for Round 3, arrow 4. */
 export const ARROW_COLUMN_HEADINGS: readonly string[] = Object.freeze(
@@ -236,9 +222,8 @@ export class UnrecognizedCsvError extends Error {
 export interface CsvImport {
   scorecards: NewScorecard[];
   /**
-   * Rows skipped because a score wasn't a whole number from 0 to 10, the format
-   * wasn't recognized, or a 3D row had an unknown side or no recognizable first
-   * animal.
+   * Rows skipped because they aren't a scorecard; see
+   * {@link readImportedScorecard} for what can be read.
    */
   unreadableRowCount: number;
 }
@@ -246,8 +231,8 @@ export interface CsvImport {
 /**
  * Reads scorecards from a CSV file exported by this app. Columns may be in any
  * order, and extra columns are ignored, so a file that has been opened and
- * re-saved in a spreadsheet still imports. A row with no format is Bullseye, and
- * a 3D row with no side is the left side.
+ * re-saved in a spreadsheet still imports. Each row is read by
+ * {@link readImportedScorecard}, which sets out what a row may leave out.
  *
  * @throws {UnrecognizedCsvError} When the date or arrow columns are missing.
  */
@@ -275,49 +260,25 @@ export function readScorecardsFromCsv(text: string): CsvImport {
   const importedAt = Date.now();
 
   for (const row of dataRows) {
-    const cellAt = (column: number): string => (column >= 0 ? (row[column] ?? "").trim() : "");
-    const arrowScores = arrowColumns.map((column) => parseArrowScore(cellAt(column)));
-    const formatCell = cellAt(formatColumn);
-    const format = formatCell === "" ? "bullseye" : parseFormat(formatCell);
-    const firstAnimal = format === "3d" ? parseAnimal(cellAt(firstAnimalColumn)) : null;
-    const isMissingAnimal = format === "3d" && firstAnimal === null;
-    const sideCell = cellAt(sideColumn);
-    const side = format !== "3d" ? null : sideCell === "" ? "left" : parseSide(sideCell);
-    const isUnknownSide = format === "3d" && side === null;
-    if (!arrowScores.every(isValidScore) || format === null || isMissingAnimal || isUnknownSide) {
-      unreadableRowCount++;
-      continue;
-    }
-    scorecards.push({
-      date: cellAt(dateColumn) || getTodayAsIsoDate(),
-      archer: cellAt(archerColumn),
-      shooterNumber: cellAt(shooterColumn),
-      format,
-      side,
-      firstAnimal,
-      arrowScores,
+    const cellAt = (column: number): string => (column >= 0 ? (row[column] ?? "") : "");
+    const scorecard = readImportedScorecard(
+      {
+        date: cellAt(dateColumn),
+        archer: cellAt(archerColumn),
+        shooterNumber: cellAt(shooterColumn),
+        format: cellAt(formatColumn),
+        side: cellAt(sideColumn),
+        firstAnimal: cellAt(firstAnimalColumn),
+        arrows: arrowColumns.map(cellAt),
+      },
       // Keep imported scorecards in file order when they share a date.
-      createdAt: importedAt + scorecards.length,
-    });
+      importedAt + scorecards.length,
+    );
+    if (scorecard === null) {
+      unreadableRowCount++;
+    } else {
+      scorecards.push(scorecard);
+    }
   }
   return { scorecards, unreadableRowCount };
-}
-
-/**
- * Reads one arrow cell.
- *
- * @returns The score, null for a blank cell, or undefined when the cell
- *   isn't a valid score.
- */
-function parseArrowScore(cell: string): ArrowScore | undefined {
-  if (cell === "") {
-    return null;
-  }
-  const score = Number(cell);
-  return Number.isInteger(score) && score >= 0 && score <= MAXIMUM_ARROW_SCORE ? score : undefined;
-}
-
-/** Type guard: true when a parsed cell held a valid score or was blank. */
-function isValidScore(score: ArrowScore | undefined): score is ArrowScore {
-  return score !== undefined;
 }

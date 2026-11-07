@@ -177,45 +177,22 @@ describe("readScorecardsFromCsv", () => {
     assert.equal(scorecards[0].side, "right");
   });
 
-  it("counts a 3D row with no side as the left side", () => {
-    const rows = parseCsv(createCsv("3d", [THREE_D_SCORECARD]));
-    rows[1][THREE_D_COLUMN_HEADINGS.indexOf("Side")] = "";
-    const { scorecards } = readScorecardsFromCsv(toCsvText(rows));
-    assert.equal(scorecards[0].side, "left");
+  it("reads back a 3D scorecard that was saved without a first animal", () => {
+    const { scorecards, unreadableRowCount } = readScorecardsFromCsv(
+      createCsv("3d", [{ ...THREE_D_SCORECARD, firstAnimal: null }]),
+    );
+    assert.equal(unreadableRowCount, 0);
+    assert.equal(scorecards[0].firstAnimal, null);
   });
 
-  it("skips 3D rows with an unknown side", () => {
-    const rows = parseCsv(createCsv("3d", [THREE_D_SCORECARD]));
-    rows[1][THREE_D_COLUMN_HEADINGS.indexOf("Side")] = "Middle";
+  it("reads back a file a US spreadsheet re-saved", () => {
+    const rows = parseCsv(createCsv("bullseye", [{ ...SCORECARD, shooterNumber: "00123" }]));
+    rows[1][BULLSEYE_COLUMN_HEADINGS.indexOf("Date")] = "11/4/2026";
+    rows[1][BULLSEYE_COLUMN_HEADINGS.indexOf("Shooter #")] = "123";
     const { scorecards, unreadableRowCount } = readScorecardsFromCsv(toCsvText(rows));
-    assert.equal(scorecards.length, 0);
-    assert.equal(unreadableRowCount, 1);
-  });
-
-  it("reads formats and animals regardless of capitalization", () => {
-    const rows = parseCsv(createCsv("3d", [THREE_D_SCORECARD]));
-    rows[1][THREE_D_COLUMN_HEADINGS.indexOf("Format")] = "3d";
-    rows[1][THREE_D_COLUMN_HEADINGS.indexOf("First animal")] = "pronghorn antelope";
-    const { scorecards } = readScorecardsFromCsv(toCsvText(rows));
-    assert.equal(scorecards[0].firstAnimal, "Pronghorn Antelope");
-  });
-
-  it("skips rows with an unknown format", () => {
-    const rows = parseCsv(createCsv("3d", [THREE_D_SCORECARD]));
-    rows[1][THREE_D_COLUMN_HEADINGS.indexOf("Format")] = "Field";
-    const { scorecards, unreadableRowCount } = readScorecardsFromCsv(toCsvText(rows));
-    assert.equal(scorecards.length, 0);
-    assert.equal(unreadableRowCount, 1);
-  });
-
-  it("skips 3D rows with a missing or unknown first animal", () => {
-    for (const firstAnimal of ["", "Black Bear"]) {
-      const rows = parseCsv(createCsv("3d", [THREE_D_SCORECARD]));
-      rows[1][THREE_D_COLUMN_HEADINGS.indexOf("First animal")] = firstAnimal;
-      const { scorecards, unreadableRowCount } = readScorecardsFromCsv(toCsvText(rows));
-      assert.equal(scorecards.length, 0);
-      assert.equal(unreadableRowCount, 1);
-    }
+    assert.equal(unreadableRowCount, 0);
+    assert.equal(scorecards[0].date, "2026-11-04");
+    assert.equal(scorecards[0].shooterNumber, "00123");
   });
 
   it("reads files exported with the older E1A1 arrow headings", () => {

@@ -4,11 +4,8 @@
  * filled-in value gives way. No page code, so the rules can be tested in Node.
  */
 
-import { sortNewestFirst } from "./scorecard.ts";
+import { isCompleteShooterNumber, sortNewestFirst } from "./scorecard.ts";
 import type { Scorecard } from "./scorecard.ts";
-
-/** How many digits a complete Shooter # has, set by the rows on the card. */
-export const SHOOTER_NUMBER_LENGTH = 5;
 
 /** The part of a reader's row that matters for the Shooter #. */
 interface ShooterDigit {
@@ -39,16 +36,6 @@ export const BLANK_ARCHER_FIELDS: ArcherFields = {
   shooterNumberSource: "typed",
   numberBeforeFill: null,
 };
-
-/** Tells whether a Shooter # has all its digits, including any leading zeros. */
-export function isCompleteShooterNumber(shooterNumber: string): boolean {
-  return shooterNumber.length === SHOOTER_NUMBER_LENGTH && /^\d+$/.test(shooterNumber);
-}
-
-/** Tells whether a Shooter # has been started but not finished. */
-export function isPartialShooterNumber(shooterNumber: string): boolean {
-  return shooterNumber !== "" && !isCompleteShooterNumber(shooterNumber);
-}
 
 /** Tells whether the archer left the card's Shooter # section completely blank. */
 export function isShooterSectionBlank(digits: readonly ShooterDigit[]): boolean {

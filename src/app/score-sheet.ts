@@ -6,16 +6,15 @@
 import {
   ArcherDirectory,
   BLANK_ARCHER_FIELDS,
-  SHOOTER_NUMBER_LENGTH,
   applyScannedNumber,
   changeArcher,
   changeShooterNumber,
   findMismatchedNumber,
-  isPartialShooterNumber,
   isShooterNumberFlagged,
 } from "./archer-fields.ts";
 import type { ArcherFields } from "./archer-fields.ts";
 import { getTodayAsIsoDate } from "./dates.ts";
+import { SHOOTER_NUMBER_LENGTH, isPartialShooterNumber } from "./scorecard.ts";
 import { createElement, getElement } from "./page-helpers.ts";
 import {
   ANIMALS,

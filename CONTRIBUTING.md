@@ -61,7 +61,7 @@ Most of it will look familiar. The differences worth knowing:
 | `Task<T>`, `async`/`await`              | `Promise<T>`, `async`/`await`                                                 |
 | `obj as Foo` (checked cast)             | `obj as Foo` is unchecked; it only tells the compiler to trust you            |
 
-Interfaces are structural: any object with the right properties counts, whether or not it says `implements`. And the types exist only at compile time. At run time it's plain JavaScript, so data from outside (local storage, a CSV file) has to be checked by hand, as `normalizeStoredScorecard` and `readScorecardsFromCsv` do.
+Interfaces are structural: any object with the right properties counts, whether or not it says `implements`. And the types exist only at compile time. At run time it's plain JavaScript, so data from outside (local storage, a CSV file) has to be checked by hand, as `normalizeStoredScorecard` and `readImportedScorecard` do.
 
 The project only uses TypeScript features that compile by deleting the types: no `enum`, no `namespace`, and no constructor parameter properties. That's what lets Node run the tests and build scripts directly from `.ts` files. The compiler reports an error if one of those features sneaks in.
 
@@ -83,7 +83,7 @@ src/
     score-sheet.ts         The editable arrows, totals and review list
     archer-fields.ts       How the archer and Shooter # fill each other in (pure functions)
     scoring.ts             NASP scoring rules (pure functions)
-    scorecard.ts           The saved-scorecard record
+    scorecard.ts           The saved-scorecard record, and what makes one valid
     scorecard-format.ts    Bullseye and 3D, and the rotation of animals
     log-store.ts           Saves scorecards in the browser's local storage
     log-table.ts           The format tabs and table of saved scorecards

@@ -5,7 +5,7 @@ Reads NASP practice score cards from a photo and keeps a log of them for export 
 ## Language
 
 **Archer**:
-A person who shot a scorecard, known by a name, a Shooter #, or both. Every scorecard needs at least one of the two. The log is the only record of archers, so an archer whose scorecards are all deleted is forgotten.
+A person who shot a scorecard, known by a name, a Shooter #, or both. Every scorecard needs at least one of the two. The log is the only record of archers, so an archer whose scorecards are all deleted is forgotten. Names that differ only in capitalization or stray spaces are the same name.
 
 **Arrow**:
 One shot, scored 0 to 10, or left blank.
@@ -18,8 +18,11 @@ _Avoid_: End (some printed cards still say "End")
 One archer's six rounds (30 arrows) on one date, in one format, out of 300.
 _Avoid_: Round, card, practice round
 
+**Score sheet**:
+The scorecard being read or typed in, before it's saved. Saving adds it to the log as a new scorecard, and a saved scorecard can't be edited.
+
 **Format**:
-What a scorecard was shot at: Bullseye or 3D.
+What a scorecard was shot at: Bullseye or 3D. NASP has only these two, so no other format is planned.
 _Avoid_: Discipline, type, target type
 
 **Animal**:
