@@ -116,6 +116,32 @@ describe("ArcherDirectory", () => {
   });
 });
 
+describe("ArcherDirectory.getNames", () => {
+  it("lists every name once, alphabetically", () => {
+    const directory = new ArcherDirectory([
+      createScorecard("Sam Lee", "", "2026-10-01"),
+      createScorecard("Ben Ray", BEN_NUMBER, "2026-10-01"),
+      createScorecard("Jane Doe", "123", "2026-10-01"),
+      createScorecard("Ben Ray", BEN_NUMBER, "2026-10-02"),
+    ]);
+    assert.deepEqual(directory.getNames(), ["Ben Ray", "Jane Doe", "Sam Lee"]);
+  });
+
+  it("treats names that differ only in capitalization or spaces as one, in the latest spelling", () => {
+    const directory = new ArcherDirectory([
+      createScorecard("Sam Lee", "", "2026-10-01", 1),
+      createScorecard(" sam lee ", "", "2026-10-02", 1),
+      createScorecard("SAM LEE", "", "2026-10-02", 0),
+    ]);
+    assert.deepEqual(directory.getNames(), ["sam lee"]);
+  });
+
+  it("leaves out scorecards with no name", () => {
+    const directory = new ArcherDirectory([createScorecard("", JANE_NUMBER)]);
+    assert.deepEqual(directory.getNames(), []);
+  });
+});
+
 describe("changeArcher", () => {
   it("fills a blank number from a known name", () => {
     const fields = changeArcher(BLANK_ARCHER_FIELDS, "jane doe", DIRECTORY);

@@ -75,13 +75,14 @@ describe("LogStore", () => {
     store.add(createScorecard("Kyle"));
     const result = store.addMany([
       createScorecard("kyle"),
+      createScorecard(" Kyle "),
       createScorecard("Kyle", 8),
       createScorecard("Ryan"),
     ]);
     assert.deepEqual(result, {
       addedCount: 2,
       addedCountByFormat: { bullseye: 2, "3d": 0 },
-      duplicateCount: 1,
+      duplicateCount: 2,
     });
     assert.equal(store.getAll().length, 3);
   });

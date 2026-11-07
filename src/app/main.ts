@@ -25,7 +25,7 @@ import { PhotoPanel } from "./photo-panel.ts";
 import { LogStore, StorageUnavailableError } from "./log-store.ts";
 import type { AddManyResult } from "./log-store.ts";
 import { ArcherDirectory, readShooterNumber } from "./archer-fields.ts";
-import { connectLogTabs, getArcherNames, renderLog } from "./log-table.ts";
+import { connectLogTabs, renderLog } from "./log-table.ts";
 import { findSaveProblem, sortNewestFirst } from "./scorecard.ts";
 import type { SaveProblem } from "./scorecard.ts";
 import {
@@ -339,7 +339,6 @@ function getVisibleExportTable(): ReturnType<typeof createExportTable> {
 function refreshLog(): void {
   const scorecards = log.getAll();
   renderLog(scorecards, logFormat, deleteScorecard);
-  scoreSheet.setArcherSuggestions(getArcherNames(scorecards));
   scoreSheet.setArcherDirectory(new ArcherDirectory(scorecards));
   const isTabEmpty = getVisibleExportTable().rows.length === 0;
   getElement("download-excel-button", HTMLButtonElement).disabled = scorecards.length === 0;

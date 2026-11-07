@@ -200,14 +200,3 @@ function createDeleteButton(
   });
   return button;
 }
-
-/**
- * Returns the distinct archer names in the log, alphabetically, for the
- * name suggestions on the score sheet.
- */
-export function getArcherNames(scorecards: readonly Scorecard[]): string[] {
-  const names = new Set(
-    scorecards.map((scorecard) => scorecard.archer).filter((name) => name !== ""),
-  );
-  return [...names].sort((first, second) => first.localeCompare(second));
-}
